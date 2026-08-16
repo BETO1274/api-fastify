@@ -1,5 +1,5 @@
-import { StockParams, StockBody, StockResponse } from './stock.schema.js'
-import { crearStock, obtenerStockPorId } from './stock.controller.js'
+import { StockParams, StockBody, StockBodyParcial, StockResponse } from './stock.schema.js'
+import { crearStock, obtenerStockPorId, actualizarStock } from './stock.controller.js'
 
 export default async function stockRoutes(fastify) {
   fastify.post('/', {
@@ -14,6 +14,16 @@ export default async function stockRoutes(fastify) {
     schema: { params: StockParams, response: { 200: StockResponse } }
   }, async (request, reply) => {
     const stock = await obtenerStockPorId(request.params.id)
+    if (!stock) {
+      return reply.code(404).send({ mensaje: 'Stock no encontrado' })
+    }
+    return stock
+  })
+
+  fastify.patch('/:id', {
+    schema: { params: StockParams, body: StockBodyParcial, response: { 200: StockResponse } }
+  }, async (request, reply) => {
+    const stock = await actualizarStock(request.params.id, request.body)
     if (!stock) {
       return reply.code(404).send({ mensaje: 'Stock no encontrado' })
     }
