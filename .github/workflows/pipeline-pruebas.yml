@@ -29,6 +29,9 @@ jobs:
       - name: Análisis estático (lint)
         run: npm run lint
 
+      - name: Aplicar migraciones pendientes a Supabase Test
+        run: npx supabase db push --db-url "${{ secrets.DATABASE_URL_TEST }}" --yes
+
       - name: Ejecutar pruebas con cobertura
         run: npm run test:coverage
 
@@ -39,16 +42,10 @@ jobs:
         run: docker build -t api-fastify-test .
 
   deploy:
-    name: Migrar BD y desplegar en Render (Test)
+    name: Desplegar en Render (Test)
     needs: build-and-test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del código
-        uses: actions/checkout@v4
-
-      - name: Aplicar migraciones pendientes a Supabase Test
-        run: npx supabase db push --db-url "${{ secrets.DATABASE_URL_TEST }}" --yes
-
       - name: Disparar despliegue en Render
         run: curl --fail-with-body -sS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_TEST }}"
