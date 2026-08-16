@@ -1,14 +1,29 @@
 import Fastify from 'fastify'
+import fastifyHttpQuery from '@thecodepace/fastify-http-query'
+import swagger from '@fastify/swagger'
+import swaggerUi from '@fastify/swagger-ui'
+import articuloRoutes from './modules/articulo/articulo.routes.js'
 
-const app = Fastify({
-  logger: true
-})
+export function buildApp() {
+  const app = Fastify({
+    logger: true
+  })
 
-const PORT = process.env.PORT || 3000
+  app.register(fastifyHttpQuery)
 
-app.listen({ port: PORT, host: '0.0.0.0' }, (error) => {
-  if (error) {
-    app.log.error(error)
-    process.exit(1)
-  }
-})
+  app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'API Producción y Materiales',
+        version: '1.0.0'
+      }
+    }
+  })
+  app.register(swaggerUi, {
+    routePrefix: '/docs'
+  })
+
+  app.register(articuloRoutes, { prefix: '/articulos' })
+
+  return app
+}
