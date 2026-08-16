@@ -38,3 +38,24 @@ export async function eliminarStock(id) {
   const { rows } = await pool.query('delete from stock where id = $1 returning id', [id])
   return rows[0] ?? null
 }
+
+export async function buscarStock({ articulo_id, ubicacion }) {
+  const condiciones = []
+  const valores = []
+
+  if (articulo_id) {
+    valores.push(articulo_id)
+    condiciones.push(`articulo_id = $${valores.length}`)
+  }
+  if (ubicacion) {
+    valores.push(ubicacion)
+    condiciones.push(`ubicacion = $${valores.length}`)
+  }
+
+  const whereClause = condiciones.length > 0 ? `where ${condiciones.join(' and ')}` : ''
+  const { rows } = await pool.query(
+    `select * from stock ${whereClause} order by id`,
+    valores
+  )
+  return rows
+}

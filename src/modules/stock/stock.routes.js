@@ -1,5 +1,6 @@
-import { StockParams, StockBody, StockBodyParcial, StockResponse } from './stock.schema.js'
-import { crearStock, obtenerStockPorId, actualizarStock, eliminarStock } from './stock.controller.js'
+import { Type } from '@sinclair/typebox'
+import { StockParams, StockBody, StockBodyParcial, StockQueryBody, StockResponse } from './stock.schema.js'
+import { crearStock, obtenerStockPorId, actualizarStock, eliminarStock, buscarStock } from './stock.controller.js'
 
 export default async function stockRoutes(fastify) {
   fastify.post('/', {
@@ -38,5 +39,11 @@ export default async function stockRoutes(fastify) {
       return reply.code(404).send({ mensaje: 'Stock no encontrado' })
     }
     return reply.code(204).send()
+  })
+
+  fastify.query('/search', {
+    schema: { body: StockQueryBody, response: { 200: Type.Array(StockResponse) } }
+  }, async (request) => {
+    return buscarStock(request.body)
   })
 }
