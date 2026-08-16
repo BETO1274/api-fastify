@@ -11,3 +11,6 @@ coverage/
 # Contexto interno del proyecto y configuración local del asistente
 context.md
 .claude/
+
+# Credenciales locales (no deben subirse jamás)
+credentials.local.md
