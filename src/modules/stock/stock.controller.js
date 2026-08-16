@@ -33,3 +33,8 @@ export async function actualizarStock(id, cambios) {
   )
   return rows[0] ?? null
 }
+
+export async function eliminarStock(id) {
+  const { rows } = await pool.query('delete from stock where id = $1 returning id', [id])
+  return rows[0] ?? null
+}
