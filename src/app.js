@@ -3,6 +3,7 @@ import fastifyHttpQuery from '@thecodepace/fastify-http-query'
 import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import articuloRoutes from './modules/articulo/articulo.routes.js'
+import stockRoutes from './modules/stock/stock.routes.js'
 
 export function buildApp() {
   const app = Fastify({
@@ -24,6 +25,7 @@ export function buildApp() {
   })
 
   app.register(articuloRoutes, { prefix: '/articulos' })
+  app.register(stockRoutes, { prefix: '/stock' })
 
   return app
 }
