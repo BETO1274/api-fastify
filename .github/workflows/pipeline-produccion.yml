@@ -1,0 +1,52 @@
+name: Pipeline Producción
+
+on:
+  push:
+    branches: [produccion]
+  pull_request:
+    branches: [produccion]
+
+env:
+  # Conexión directa (no pooler): evita inconsistencia de caché de esquema justo tras migrar
+  DATABASE_URL: ${{ secrets.MIGRATION_DB_URL_PROD }}
+
+jobs:
+  build-and-test:
+    name: Build, pruebas y quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Análisis estático (lint)
+        run: npm run lint
+
+      - name: Aplicar migraciones pendientes a Supabase Producción
+        run: npx supabase db push --db-url "${{ secrets.MIGRATION_DB_URL_PROD }}" --yes
+
+      - name: Ejecutar pruebas con cobertura
+        run: npm run test:coverage
+
+      - name: Quality gate — cobertura mínima 85%
+        run: npm run check-coverage -- 85
+
+      - name: Build de imagen Docker
+        run: docker build -t api-fastify-produccion .
+
+  deploy:
+    name: Desplegar en Render (Producción)
+    needs: build-and-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar despliegue en Render
+        run: curl --fail-with-body -sS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PROD }}"
