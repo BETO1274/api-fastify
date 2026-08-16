@@ -7,7 +7,8 @@ on:
     branches: [produccion]
 
 env:
-  DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
+  # Conexión directa (no pooler): evita inconsistencia de caché de esquema justo tras migrar
+  DATABASE_URL: ${{ secrets.MIGRATION_DB_URL_PROD }}
 
 jobs:
   build-and-test:
@@ -30,7 +31,7 @@ jobs:
         run: npm run lint
 
       - name: Aplicar migraciones pendientes a Supabase Producción
-        run: npx supabase db push --db-url "${{ secrets.DATABASE_URL_PROD }}" --yes
+        run: npx supabase db push --db-url "${{ secrets.MIGRATION_DB_URL_PROD }}" --yes
 
       - name: Ejecutar pruebas con cobertura
         run: npm run test:coverage
