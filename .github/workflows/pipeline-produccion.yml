@@ -42,6 +42,31 @@ jobs:
       - name: Build de imagen Docker
         run: docker build -t api-fastify-produccion .
 
+      - name: Smoke test — el contenedor arranca y responde
+        run: |
+          docker run -d --name smoke-test -p 3000:3000 \
+            -e DATABASE_URL="${{ secrets.MIGRATION_DB_URL_PROD }}" \
+            -e PORT=3000 \
+            api-fastify-produccion
+
+          listo=""
+          for intento in $(seq 1 10); do
+            if curl -fsS http://localhost:3000/docs > /dev/null 2>&1; then
+              listo="si"
+              break
+            fi
+            sleep 1
+          done
+
+          docker logs smoke-test
+          docker rm -f smoke-test
+
+          if [ -z "$listo" ]; then
+            echo "El contenedor nunca respondió en /docs"
+            exit 1
+          fi
+          echo "Contenedor arrancó y respondió correctamente"
+
   deploy:
     name: Desplegar en Render (Producción)
     needs: build-and-test
