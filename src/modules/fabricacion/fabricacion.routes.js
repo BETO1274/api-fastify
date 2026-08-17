@@ -1,5 +1,6 @@
-import { FabricacionParams, FabricacionBody, FabricacionBodyParcial, FabricacionResponse } from './fabricacion.schema.js'
-import { crearFabricacion, obtenerFabricacionPorId, actualizarFabricacion, eliminarFabricacion } from './fabricacion.controller.js'
+import { Type } from '@sinclair/typebox'
+import { FabricacionParams, FabricacionBody, FabricacionBodyParcial, FabricacionQueryBody, FabricacionResponse } from './fabricacion.schema.js'
+import { crearFabricacion, obtenerFabricacionPorId, actualizarFabricacion, eliminarFabricacion, buscarFabricaciones } from './fabricacion.controller.js'
 
 export default async function fabricacionRoutes(fastify) {
   fastify.post('/', {
@@ -45,5 +46,11 @@ export default async function fabricacionRoutes(fastify) {
       return reply.code(404).send({ mensaje: 'Fabricación no encontrada' })
     }
     return reply.code(204).send()
+  })
+
+  fastify.query('/search', {
+    schema: { body: FabricacionQueryBody, response: { 200: Type.Array(FabricacionResponse) } }
+  }, async (request) => {
+    return buscarFabricaciones(request.body)
   })
 }

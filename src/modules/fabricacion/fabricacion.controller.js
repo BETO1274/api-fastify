@@ -91,3 +91,20 @@ export async function eliminarFabricacion(id) {
   const { rows } = await pool.query('delete from fabricacion where id = $1 returning id', [id])
   return rows[0] ?? null
 }
+
+export async function buscarFabricaciones({ receta_id }) {
+  const condiciones = []
+  const valores = []
+
+  if (receta_id) {
+    valores.push(receta_id)
+    condiciones.push(`receta_id = $${valores.length}`)
+  }
+
+  const whereClause = condiciones.length > 0 ? `where ${condiciones.join(' and ')}` : ''
+  const { rows } = await pool.query(
+    `select * from fabricacion ${whereClause} order by id`,
+    valores
+  )
+  return rows
+}
