@@ -86,3 +86,8 @@ export async function actualizarFabricacion(id, cambios) {
   )
   return rows[0] ?? null
 }
+
+export async function eliminarFabricacion(id) {
+  const { rows } = await pool.query('delete from fabricacion where id = $1 returning id', [id])
+  return rows[0] ?? null
+}

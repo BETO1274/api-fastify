@@ -1,5 +1,5 @@
 import { FabricacionParams, FabricacionBody, FabricacionBodyParcial, FabricacionResponse } from './fabricacion.schema.js'
-import { crearFabricacion, obtenerFabricacionPorId, actualizarFabricacion } from './fabricacion.controller.js'
+import { crearFabricacion, obtenerFabricacionPorId, actualizarFabricacion, eliminarFabricacion } from './fabricacion.controller.js'
 
 export default async function fabricacionRoutes(fastify) {
   fastify.post('/', {
@@ -35,5 +35,15 @@ export default async function fabricacionRoutes(fastify) {
       return reply.code(404).send({ mensaje: 'Fabricación no encontrada' })
     }
     return fabricacion
+  })
+
+  fastify.delete('/:id', {
+    schema: { params: FabricacionParams }
+  }, async (request, reply) => {
+    const eliminado = await eliminarFabricacion(request.params.id)
+    if (!eliminado) {
+      return reply.code(404).send({ mensaje: 'Fabricación no encontrada' })
+    }
+    return reply.code(204).send()
   })
 }
