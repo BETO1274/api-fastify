@@ -4,6 +4,7 @@ import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 import articuloRoutes from './modules/articulo/articulo.routes.js'
 import stockRoutes from './modules/stock/stock.routes.js'
+import recetaRoutes from './modules/receta/receta.routes.js'
 
 export function buildApp() {
   const app = Fastify({
@@ -26,6 +27,7 @@ export function buildApp() {
 
   app.register(articuloRoutes, { prefix: '/articulos' })
   app.register(stockRoutes, { prefix: '/stock' })
+  app.register(recetaRoutes, { prefix: '/recetas' })
 
   return app
 }
