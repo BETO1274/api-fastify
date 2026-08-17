@@ -84,3 +84,8 @@ export async function actualizarReceta(id, cambios) {
 
   return obtenerRecetaPorId(id)
 }
+
+export async function eliminarReceta(id) {
+  const { rows } = await pool.query('delete from receta where id = $1 returning id', [id])
+  return rows[0] ?? null
+}
