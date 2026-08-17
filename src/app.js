@@ -31,5 +31,25 @@ export function buildApp() {
   app.register(recetaRoutes, { prefix: '/recetas' })
   app.register(fabricacionRoutes, { prefix: '/fabricaciones' })
 
+  app.setErrorHandler((error, request, reply) => {
+    if (error.code === '23503') {
+      return reply.code(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        mensaje: 'Referencia inválida: el recurso relacionado no existe'
+      })
+    }
+
+    if (error.code === '23514') {
+      return reply.code(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        mensaje: 'El valor enviado no cumple una restricción de la base de datos'
+      })
+    }
+
+    reply.send(error)
+  })
+
   return app
 }
