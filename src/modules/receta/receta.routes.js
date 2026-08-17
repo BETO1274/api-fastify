@@ -1,5 +1,5 @@
-import { RecetaParams, RecetaBody, RecetaResponse } from './receta.schema.js'
-import { crearReceta, obtenerRecetaPorId } from './receta.controller.js'
+import { RecetaParams, RecetaBody, RecetaBodyParcial, RecetaResponse } from './receta.schema.js'
+import { crearReceta, obtenerRecetaPorId, actualizarReceta } from './receta.controller.js'
 
 export default async function recetaRoutes(fastify) {
   fastify.post('/', {
@@ -14,6 +14,16 @@ export default async function recetaRoutes(fastify) {
     schema: { params: RecetaParams, response: { 200: RecetaResponse } }
   }, async (request, reply) => {
     const receta = await obtenerRecetaPorId(request.params.id)
+    if (!receta) {
+      return reply.code(404).send({ mensaje: 'Receta no encontrada' })
+    }
+    return receta
+  })
+
+  fastify.patch('/:id', {
+    schema: { params: RecetaParams, body: RecetaBodyParcial, response: { 200: RecetaResponse } }
+  }, async (request, reply) => {
+    const receta = await actualizarReceta(request.params.id, request.body)
     if (!receta) {
       return reply.code(404).send({ mensaje: 'Receta no encontrada' })
     }
