@@ -29,6 +29,20 @@ describe('módulo articulo', () => {
     articuloCreadoId = cuerpo.id
   })
 
+  it('POST /articulos responde 400 si tipo no es un valor permitido', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/articulos',
+      payload: {
+        nombre: 'Artículo inválido',
+        tipo: 'invalido',
+        unidad_medida: 'kg'
+      }
+    })
+
+    expect(respuesta.statusCode).toBe(400)
+  })
+
   it('GET /articulos/:id obtiene el artículo creado', async () => {
     const respuesta = await app.inject({
       method: 'GET',
