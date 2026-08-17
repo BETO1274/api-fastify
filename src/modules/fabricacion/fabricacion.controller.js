@@ -62,3 +62,8 @@ export async function crearFabricacion({ receta_id, cantidad_producir }) {
     client.release()
   }
 }
+
+export async function obtenerFabricacionPorId(id) {
+  const { rows } = await pool.query('select * from fabricacion where id = $1', [id])
+  return rows[0] ?? null
+}

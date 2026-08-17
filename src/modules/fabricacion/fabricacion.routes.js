@@ -1,5 +1,5 @@
-import { FabricacionBody, FabricacionResponse } from './fabricacion.schema.js'
-import { crearFabricacion } from './fabricacion.controller.js'
+import { FabricacionParams, FabricacionBody, FabricacionResponse } from './fabricacion.schema.js'
+import { crearFabricacion, obtenerFabricacionPorId } from './fabricacion.controller.js'
 
 export default async function fabricacionRoutes(fastify) {
   fastify.post('/', {
@@ -15,5 +15,15 @@ export default async function fabricacionRoutes(fastify) {
       }
       throw error
     }
+  })
+
+  fastify.get('/:id', {
+    schema: { params: FabricacionParams, response: { 200: FabricacionResponse } }
+  }, async (request, reply) => {
+    const fabricacion = await obtenerFabricacionPorId(request.params.id)
+    if (!fabricacion) {
+      return reply.code(404).send({ mensaje: 'Fabricación no encontrada' })
+    }
+    return fabricacion
   })
 }
