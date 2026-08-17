@@ -12,7 +12,7 @@ env:
 
 jobs:
   build-and-test:
-    name: Build, pruebas y quality gate
+    name: Build, pruebas y quality gate (Pruebas)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
