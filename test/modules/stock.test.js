@@ -45,6 +45,26 @@ describe('módulo stock', () => {
     stockCreadoId = cuerpo.id
   })
 
+  it('POST /stock responde 400 si cantidad es negativa', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/stock',
+      payload: { articulo_id: articuloId, cantidad: -10, ubicacion: 'Bodega A' }
+    })
+
+    expect(respuesta.statusCode).toBe(400)
+  })
+
+  it('POST /stock responde 400 si articulo_id no existe (violación de llave foránea)', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/stock',
+      payload: { articulo_id: 999999, cantidad: 10, ubicacion: 'Bodega A' }
+    })
+
+    expect(respuesta.statusCode).toBe(400)
+  })
+
   it('GET /stock/:id obtiene el registro creado', async () => {
     const respuesta = await app.inject({
       method: 'GET',

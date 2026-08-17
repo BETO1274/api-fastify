@@ -50,6 +50,29 @@ describe('módulo receta', () => {
     recetaCreadaId = cuerpo.id
   })
 
+  it('POST /recetas responde 400 si ingredientes viene vacío', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/recetas',
+      payload: { producto_final_id: productoFinalId, ingredientes: [] }
+    })
+
+    expect(respuesta.statusCode).toBe(400)
+  })
+
+  it('POST /recetas responde 400 si un ingrediente referencia un articulo_id inexistente', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/recetas',
+      payload: {
+        producto_final_id: productoFinalId,
+        ingredientes: [{ articulo_id: 999999, cantidad_necesaria: 1 }]
+      }
+    })
+
+    expect(respuesta.statusCode).toBe(400)
+  })
+
   it('GET /recetas/:id obtiene la receta con sus ingredientes', async () => {
     const respuesta = await app.inject({
       method: 'GET',

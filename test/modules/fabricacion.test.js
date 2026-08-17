@@ -9,6 +9,9 @@ let insumoId
 let recetaId
 let stockInsumoId
 let fabricacionNegativaId
+let insumoSinStockId
+let recetaSinStockId
+let fabricacionSinStockId
 
 beforeAll(async () => {
   const producto = await app.inject({
@@ -47,7 +50,16 @@ afterAll(async () => {
   if (fabricacionNegativaId) {
     await app.inject({ method: 'DELETE', url: `/fabricaciones/${fabricacionNegativaId}` })
   }
-  await pool.query('delete from stock where articulo_id = any($1)', [[insumoId, productoFinalId]])
+  if (fabricacionSinStockId) {
+    await app.inject({ method: 'DELETE', url: `/fabricaciones/${fabricacionSinStockId}` })
+  }
+  await pool.query('delete from stock where articulo_id = any($1)', [[insumoId, productoFinalId, insumoSinStockId]])
+  if (recetaSinStockId) {
+    await app.inject({ method: 'DELETE', url: `/recetas/${recetaSinStockId}` })
+  }
+  if (insumoSinStockId) {
+    await app.inject({ method: 'DELETE', url: `/articulos/${insumoSinStockId}` })
+  }
   await app.inject({ method: 'DELETE', url: `/recetas/${recetaId}` })
   await app.inject({ method: 'DELETE', url: `/articulos/${productoFinalId}` })
   await app.inject({ method: 'DELETE', url: `/articulos/${insumoId}` })
@@ -79,6 +91,53 @@ describe('módulo fabricacion', () => {
       payload: { articulo_id: productoFinalId }
     })
     expect(stockProducto.json().some((fila) => Number(fila.cantidad) === 10)).toBe(true)
+  })
+
+  it('POST /fabricaciones responde 400 si cantidad_producir no es positiva', async () => {
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/fabricaciones',
+      payload: { receta_id: recetaId, cantidad_producir: 0 }
+    })
+
+    expect(respuesta.statusCode).toBe(400)
+  })
+
+  it('POST /fabricaciones crea el stock del insumo en negativo cuando nunca existió una fila previa', async () => {
+    const insumo = await app.inject({
+      method: 'POST',
+      url: '/articulos',
+      payload: { nombre: 'Esencia de vainilla', tipo: 'materia_prima', unidad_medida: 'ml' }
+    })
+    insumoSinStockId = insumo.json().id
+
+    const receta = await app.inject({
+      method: 'POST',
+      url: '/recetas',
+      payload: {
+        producto_final_id: productoFinalId,
+        ingredientes: [{ articulo_id: insumoSinStockId, cantidad_necesaria: 3 }]
+      }
+    })
+    recetaSinStockId = receta.json().id
+
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/fabricaciones',
+      payload: { receta_id: recetaSinStockId, cantidad_producir: 5 }
+    })
+
+    expect(respuesta.statusCode).toBe(201)
+    fabricacionSinStockId = respuesta.json().id
+
+    const stockInsumo = await app.inject({
+      method: 'QUERY',
+      url: '/stock/search',
+      payload: { articulo_id: insumoSinStockId }
+    })
+    const filas = stockInsumo.json()
+    expect(filas).toHaveLength(1)
+    expect(Number(filas[0].cantidad)).toBe(-15)
   })
 
   it('POST /fabricaciones responde 404 si la receta no existe', async () => {
