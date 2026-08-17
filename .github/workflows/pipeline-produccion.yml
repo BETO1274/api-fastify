@@ -85,6 +85,41 @@ jobs:
     needs: build-and-test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
       - name: Disparar despliegue en Render
         run: curl --fail-with-body -sS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_PROD }}"
+
+      - name: Registrar el Dockerfile desplegado en la rama deploys
+        run: |
+          cp Dockerfile /tmp/Dockerfile.deployed
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin deploys
+          git checkout deploys
+
+          mkdir -p deploys
+          {
+            echo "# Dockerfile desplegado — Producción"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Fecha (UTC): $(date -u +"%Y-%m-%d %H:%M:%S")"
+            echo ""
+            echo '```dockerfile'
+            cat /tmp/Dockerfile.deployed
+            echo '```'
+          } > deploys/dockerfile-produccion.md
+
+          git add deploys/dockerfile-produccion.md
+          if ! git diff --cached --quiet; then
+            git commit -m "📝 :memo: registrar dockerfile desplegado en produccion"
+            git push origin deploys
+          else
+            echo "Sin cambios en el Dockerfile desplegado"
+          fi
