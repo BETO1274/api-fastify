@@ -10,6 +10,10 @@ env:
   # Conexión directa (no pooler): evita inconsistencia de caché de esquema justo tras migrar
   DATABASE_URL: ${{ secrets.MIGRATION_DB_URL_TEST }}
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-and-test:
     name: Build, pruebas y quality gate (Pruebas)
@@ -66,6 +70,15 @@ jobs:
             exit 1
           fi
           echo "Contenedor arrancó y respondió correctamente"
+
+      - name: Publicar imagen en GitHub Container Registry
+        if: github.event_name == 'push'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker tag api-fastify-test ghcr.io/beto1274/api-fastify-test:${{ github.sha }}
+          docker tag api-fastify-test ghcr.io/beto1274/api-fastify-test:latest
+          docker push ghcr.io/beto1274/api-fastify-test:${{ github.sha }}
+          docker push ghcr.io/beto1274/api-fastify-test:latest
 
   deploy:
     name: Desplegar en Render (Test)
