@@ -1,5 +1,6 @@
-import { RecetaParams, RecetaBody, RecetaBodyParcial, RecetaResponse } from './receta.schema.js'
-import { crearReceta, obtenerRecetaPorId, actualizarReceta, eliminarReceta } from './receta.controller.js'
+import { Type } from '@sinclair/typebox'
+import { RecetaParams, RecetaBody, RecetaBodyParcial, RecetaQueryBody, RecetaResponse } from './receta.schema.js'
+import { crearReceta, obtenerRecetaPorId, actualizarReceta, eliminarReceta, buscarRecetas } from './receta.controller.js'
 
 export default async function recetaRoutes(fastify) {
   fastify.post('/', {
@@ -38,5 +39,11 @@ export default async function recetaRoutes(fastify) {
       return reply.code(404).send({ mensaje: 'Receta no encontrada' })
     }
     return reply.code(204).send()
+  })
+
+  fastify.query('/search', {
+    schema: { body: RecetaQueryBody, response: { 200: Type.Array(RecetaResponse) } }
+  }, async (request) => {
+    return buscarRecetas(request.body)
   })
 }

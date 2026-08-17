@@ -89,3 +89,29 @@ export async function eliminarReceta(id) {
   const { rows } = await pool.query('delete from receta where id = $1 returning id', [id])
   return rows[0] ?? null
 }
+
+export async function buscarRecetas({ producto_final_id }) {
+  const condiciones = []
+  const valores = []
+
+  if (producto_final_id) {
+    valores.push(producto_final_id)
+    condiciones.push(`producto_final_id = $${valores.length}`)
+  }
+
+  const whereClause = condiciones.length > 0 ? `where ${condiciones.join(' and ')}` : ''
+  const { rows: recetas } = await pool.query(
+    `select * from receta ${whereClause} order by id`,
+    valores
+  )
+
+  const resultados = []
+  for (const receta of recetas) {
+    const { rows: ingredientes } = await pool.query(
+      'select articulo_id, cantidad_necesaria from receta_ingrediente where receta_id = $1 order by id',
+      [receta.id]
+    )
+    resultados.push({ ...receta, ingredientes })
+  }
+  return resultados
+}
