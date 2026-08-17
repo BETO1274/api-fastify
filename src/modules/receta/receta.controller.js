@@ -28,3 +28,18 @@ export async function crearReceta({ producto_final_id, ingredientes }) {
     client.release()
   }
 }
+
+export async function obtenerRecetaPorId(id) {
+  const { rows } = await pool.query('select * from receta where id = $1', [id])
+  const receta = rows[0]
+  if (!receta) {
+    return null
+  }
+
+  const { rows: ingredientes } = await pool.query(
+    'select articulo_id, cantidad_necesaria from receta_ingrediente where receta_id = $1 order by id',
+    [id]
+  )
+
+  return { ...receta, ingredientes }
+}
