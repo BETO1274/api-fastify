@@ -15,6 +15,14 @@ Suite de validación end-to-end contra los ambientes reales (Test, Producción y
 2. Seleccionar el Environment correspondiente.
 3. Ejecutar con **Collection Runner**, en orden (de arriba hacia abajo) — los requests de creación guardan el ID en variables de colección que usan los requests siguientes.
 
+### Variables de colección (`articulo_insumo_id`, `receta_id`, etc.)
+
+Estas variables se rellenan automáticamente cuando corres la colección completa por el **Collection Runner**: el request "POST crear articulo" guarda el id que crea, y los requests siguientes lo reutilizan.
+
+Si en cambio abres y mandas **un request suelto** (sin haber corrido antes el que crea el dato), esas variables tienen un valor por defecto: apuntan a los **datos de demo sembrados en Test** (Harina de trigo, Pastel de vainilla, su receta y una fabricación ya ejecutada — ver la sección de datos de demo más abajo). Así cualquier `GET`/`PATCH`/`QUERY` individual funciona apenas lo abras.
+
+⚠️ **Cuidado con los requests `DELETE` sueltos**: si los mandas individualmente usando esos valores por defecto, vas a borrar los datos de demo reales, no datos descartables. Los `DELETE` son seguros solo dentro de una corrida completa del Runner (crean su propio dato desechable y lo borran al final) — para probar un `DELETE` suelto sin arriesgar la demo, cambia primero la variable a un id que no te importe perder.
+
 Con `newman` (CLI, no requiere abrir Postman):
 ```bash
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-test.postman_environment.json

@@ -5,11 +5,11 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "articulo_insumo_id", "value": "" },
-    { "key": "articulo_producto_id", "value": "" },
-    { "key": "stock_id", "value": "" },
-    { "key": "receta_id", "value": "" },
-    { "key": "fabricacion_id", "value": "" }
+    { "key": "articulo_insumo_id", "value": "123", "description": "Default: Harina de trigo (dato de demo en Test). El Collection Runner lo sobreescribe con un id nuevo al correr la carpeta 01." },
+    { "key": "articulo_producto_id", "value": "127", "description": "Default: Pastel de vainilla (dato de demo en Test)." },
+    { "key": "stock_id", "value": "99", "description": "Default: stock de Harina de trigo (dato de demo en Test)." },
+    { "key": "receta_id", "value": "53", "description": "Default: receta del Pastel de vainilla (dato de demo en Test)." },
+    { "key": "fabricacion_id", "value": "40", "description": "Default: fabricación de 10 pasteles ya ejecutada (dato de demo en Test)." }
   ],
   "item": [
     {
