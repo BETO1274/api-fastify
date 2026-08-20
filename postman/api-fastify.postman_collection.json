@@ -22,7 +22,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Postman - Insumo {{$timestamp}}\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\"\n}"
+              "raw": "{\n  \"nombre\": \"Harina de trigo {{$timestamp}}\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\"\n}"
             },
             "url": { "raw": "{{base_url}}/articulos", "host": ["{{base_url}}"], "path": ["articulos"] }
           },
@@ -49,7 +49,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Postman - Producto {{$timestamp}}\",\n  \"tipo\": \"producto_final\",\n  \"unidad_medida\": \"unidades\"\n}"
+              "raw": "{\n  \"nombre\": \"Pastel de vainilla {{$timestamp}}\",\n  \"tipo\": \"producto_final\",\n  \"unidad_medida\": \"unidades\"\n}"
             },
             "url": { "raw": "{{base_url}}/articulos", "host": ["{{base_url}}"], "path": ["articulos"] }
           },
@@ -170,7 +170,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"articulo_id\": {{articulo_insumo_id}},\n  \"cantidad\": 100,\n  \"ubicacion\": \"Bodega Postman\"\n}"
+              "raw": "{\n  \"articulo_id\": {{articulo_insumo_id}},\n  \"cantidad\": 100,\n  \"ubicacion\": \"Bodega Principal\"\n}"
             },
             "url": { "raw": "{{base_url}}/stock", "host": ["{{base_url}}"], "path": ["stock"] }
           },
@@ -204,7 +204,7 @@
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"ubicacion\": \"Bodega Postman Actualizada\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"ubicacion\": \"Bodega Secundaria\"\n}" },
             "url": { "raw": "{{base_url}}/stock/{{stock_id}}", "host": ["{{base_url}}"], "path": ["stock", "{{stock_id}}"] }
           },
           "event": [
@@ -214,7 +214,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
-                  "pm.test('ubicacion actualizada', function () { pm.expect(pm.response.json().ubicacion).to.eql('Bodega Postman Actualizada'); });"
+                  "pm.test('ubicacion actualizada', function () { pm.expect(pm.response.json().ubicacion).to.eql('Bodega Secundaria'); });"
                 ]
               }
             }
