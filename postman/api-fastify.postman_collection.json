@@ -562,7 +562,7 @@
                   "} else {",
                   "  var filas = pm.response.json();",
                   "  filas.forEach(function (fila) {",
-                  "    pm.sendRequest({ url: pm.collectionVariables.get('base_url') + '/stock/' + fila.id, method: 'DELETE' }, function () {});",
+                  "    pm.sendRequest({ url: pm.variables.get('base_url') + '/stock/' + fila.id, method: 'DELETE' }, function () {});",
                   "  });",
                   "  pm.test('filas de stock del producto final encontradas para borrar', function () { pm.expect(filas.length).to.be.at.least(1); });",
                   "}"
