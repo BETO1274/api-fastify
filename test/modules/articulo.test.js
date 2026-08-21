@@ -43,6 +43,18 @@ describe('módulo articulo', () => {
     expect(respuesta.statusCode).toBe(400)
   })
 
+  it('GET /articulos lista todos los artículos', async () => {
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: '/articulos'
+    })
+
+    expect(respuesta.statusCode).toBe(200)
+    const cuerpo = respuesta.json()
+    expect(Array.isArray(cuerpo)).toBe(true)
+    expect(cuerpo.some((articulo) => articulo.id === articuloCreadoId)).toBe(true)
+  })
+
   it('GET /articulos/:id obtiene el artículo creado', async () => {
     const respuesta = await app.inject({
       method: 'GET',

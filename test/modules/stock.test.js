@@ -65,6 +65,18 @@ describe('módulo stock', () => {
     expect(respuesta.statusCode).toBe(400)
   })
 
+  it('GET /stock lista todos los registros', async () => {
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: '/stock'
+    })
+
+    expect(respuesta.statusCode).toBe(200)
+    const cuerpo = respuesta.json()
+    expect(Array.isArray(cuerpo)).toBe(true)
+    expect(cuerpo.some((stock) => stock.id === stockCreadoId)).toBe(true)
+  })
+
   it('GET /stock/:id obtiene el registro creado', async () => {
     const respuesta = await app.inject({
       method: 'GET',

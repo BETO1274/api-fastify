@@ -11,6 +11,12 @@ export default async function stockRoutes(fastify) {
     return stock
   })
 
+  fastify.get('/', {
+    schema: { response: { 200: Type.Array(StockResponse) } }
+  }, async () => {
+    return buscarStock({})
+  })
+
   fastify.get('/:id', {
     schema: { params: StockParams, response: { 200: StockResponse } }
   }, async (request, reply) => {
