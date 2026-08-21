@@ -23,6 +23,12 @@ export default async function articuloRoutes(fastify) {
     return articulo
   })
 
+  fastify.get('/', {
+    schema: { response: { 200: Type.Array(ArticuloResponse) } }
+  }, async () => {
+    return buscarArticulos({})
+  })
+
   fastify.get('/:id', {
     schema: { params: ArticuloParams, response: { 200: ArticuloResponse } }
   }, async (request, reply) => {

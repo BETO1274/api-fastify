@@ -5,11 +5,11 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "articulo_insumo_id", "value": "" },
-    { "key": "articulo_producto_id", "value": "" },
-    { "key": "stock_id", "value": "" },
-    { "key": "receta_id", "value": "" },
-    { "key": "fabricacion_id", "value": "" }
+    { "key": "articulo_insumo_id", "value": "123", "description": "Default: Harina de trigo (dato de demo en Test). El Collection Runner lo sobreescribe con un id nuevo al correr la carpeta 01." },
+    { "key": "articulo_producto_id", "value": "127", "description": "Default: Pastel de vainilla (dato de demo en Test)." },
+    { "key": "stock_id", "value": "99", "description": "Default: stock de Harina de trigo (dato de demo en Test)." },
+    { "key": "receta_id", "value": "53", "description": "Default: receta del Pastel de vainilla (dato de demo en Test)." },
+    { "key": "fabricacion_id", "value": "40", "description": "Default: fabricación de 10 pasteles ya ejecutada (dato de demo en Test)." }
   ],
   "item": [
     {
@@ -22,7 +22,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Postman - Insumo {{$timestamp}}\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\"\n}"
+              "raw": "{\n  \"nombre\": \"Harina de trigo {{$timestamp}}\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\"\n}"
             },
             "url": { "raw": "{{base_url}}/articulos", "host": ["{{base_url}}"], "path": ["articulos"] }
           },
@@ -49,7 +49,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Postman - Producto {{$timestamp}}\",\n  \"tipo\": \"producto_final\",\n  \"unidad_medida\": \"unidades\"\n}"
+              "raw": "{\n  \"nombre\": \"Pastel de vainilla {{$timestamp}}\",\n  \"tipo\": \"producto_final\",\n  \"unidad_medida\": \"unidades\"\n}"
             },
             "url": { "raw": "{{base_url}}/articulos", "host": ["{{base_url}}"], "path": ["articulos"] }
           },
@@ -63,6 +63,27 @@
                   "var articuloProducto = pm.response.json();",
                   "pm.test('body tiene id', function () { pm.expect(articuloProducto.id).to.be.a('number'); });",
                   "pm.collectionVariables.set('articulo_producto_id', articuloProducto.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET articulos lista todos",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/articulos", "host": ["{{base_url}}"], "path": ["articulos"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "var listaArticulos = pm.response.json();",
+                  "pm.test('es un arreglo', function () { pm.expect(listaArticulos).to.be.an('array'); });",
+                  "pm.test('incluye el articulo creado', function () { pm.expect(listaArticulos.some(function (a) { return a.id === Number(pm.collectionVariables.get('articulo_insumo_id')); })).to.be.true; });"
                 ]
               }
             }
@@ -170,7 +191,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"articulo_id\": {{articulo_insumo_id}},\n  \"cantidad\": 100,\n  \"ubicacion\": \"Bodega Postman\"\n}"
+              "raw": "{\n  \"articulo_id\": {{articulo_insumo_id}},\n  \"cantidad\": 100,\n  \"ubicacion\": \"Bodega Principal\"\n}"
             },
             "url": { "raw": "{{base_url}}/stock", "host": ["{{base_url}}"], "path": ["stock"] }
           },
@@ -184,6 +205,27 @@
                   "var stockCreado = pm.response.json();",
                   "pm.test('cantidad correcta', function () { pm.expect(stockCreado.cantidad).to.eql('100'); });",
                   "pm.collectionVariables.set('stock_id', stockCreado.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET stock lista todos",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/stock", "host": ["{{base_url}}"], "path": ["stock"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "var listaStock = pm.response.json();",
+                  "pm.test('es un arreglo', function () { pm.expect(listaStock).to.be.an('array'); });",
+                  "pm.test('incluye el stock creado', function () { pm.expect(listaStock.some(function (s) { return s.id === Number(pm.collectionVariables.get('stock_id')); })).to.be.true; });"
                 ]
               }
             }
@@ -204,7 +246,7 @@
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"ubicacion\": \"Bodega Postman Actualizada\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"ubicacion\": \"Bodega Secundaria\"\n}" },
             "url": { "raw": "{{base_url}}/stock/{{stock_id}}", "host": ["{{base_url}}"], "path": ["stock", "{{stock_id}}"] }
           },
           "event": [
@@ -214,7 +256,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
-                  "pm.test('ubicacion actualizada', function () { pm.expect(pm.response.json().ubicacion).to.eql('Bodega Postman Actualizada'); });"
+                  "pm.test('ubicacion actualizada', function () { pm.expect(pm.response.json().ubicacion).to.eql('Bodega Secundaria'); });"
                 ]
               }
             }
@@ -297,6 +339,27 @@
                   "var recetaCreada = pm.response.json();",
                   "pm.test('tiene 1 ingrediente', function () { pm.expect(recetaCreada.ingredientes).to.have.lengthOf(1); });",
                   "pm.collectionVariables.set('receta_id', recetaCreada.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET recetas lista todas",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/recetas", "host": ["{{base_url}}"], "path": ["recetas"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "var listaRecetas = pm.response.json();",
+                  "pm.test('es un arreglo', function () { pm.expect(listaRecetas).to.be.an('array'); });",
+                  "pm.test('incluye la receta creada', function () { pm.expect(listaRecetas.some(function (r) { return r.id === Number(pm.collectionVariables.get('receta_id')); })).to.be.true; });"
                 ]
               }
             }
@@ -426,6 +489,27 @@
                 "exec": [
                   "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
                   "pm.test('stock descontado exactamente a 90', function () { pm.expect(pm.response.json().cantidad).to.eql('90'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET fabricaciones lista todas",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/fabricaciones", "host": ["{{base_url}}"], "path": ["fabricaciones"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "var listaFabricaciones = pm.response.json();",
+                  "pm.test('es un arreglo', function () { pm.expect(listaFabricaciones).to.be.an('array'); });",
+                  "pm.test('incluye la fabricacion creada', function () { pm.expect(listaFabricaciones.some(function (f) { return f.id === Number(pm.collectionVariables.get('fabricacion_id')); })).to.be.true; });"
                 ]
               }
             }
@@ -562,7 +646,7 @@
                   "} else {",
                   "  var filas = pm.response.json();",
                   "  filas.forEach(function (fila) {",
-                  "    pm.sendRequest({ url: pm.collectionVariables.get('base_url') + '/stock/' + fila.id, method: 'DELETE' }, function () {});",
+                  "    pm.sendRequest({ url: pm.variables.get('base_url') + '/stock/' + fila.id, method: 'DELETE' }, function () {});",
                   "  });",
                   "  pm.test('filas de stock del producto final encontradas para borrar', function () { pm.expect(filas.length).to.be.at.least(1); });",
                   "}"

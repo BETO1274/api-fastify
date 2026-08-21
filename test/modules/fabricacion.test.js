@@ -164,6 +164,14 @@ describe('módulo fabricacion', () => {
     expect(Number(stockInsumo.json().cantidad)).toBeLessThan(0)
   })
 
+  it('GET /fabricaciones lista todas las fabricaciones', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/fabricaciones' })
+    expect(respuesta.statusCode).toBe(200)
+    const cuerpo = respuesta.json()
+    expect(Array.isArray(cuerpo)).toBe(true)
+    expect(cuerpo.some((fabricacion) => fabricacion.id === fabricacionCreadaId)).toBe(true)
+  })
+
   it('GET /fabricaciones/:id obtiene la fabricación creada', async () => {
     const respuesta = await app.inject({ method: 'GET', url: `/fabricaciones/${fabricacionCreadaId}` })
     expect(respuesta.statusCode).toBe(200)

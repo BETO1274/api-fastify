@@ -73,6 +73,18 @@ describe('módulo receta', () => {
     expect(respuesta.statusCode).toBe(400)
   })
 
+  it('GET /recetas lista todas las recetas', async () => {
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: '/recetas'
+    })
+
+    expect(respuesta.statusCode).toBe(200)
+    const cuerpo = respuesta.json()
+    expect(Array.isArray(cuerpo)).toBe(true)
+    expect(cuerpo.some((receta) => receta.id === recetaCreadaId)).toBe(true)
+  })
+
   it('GET /recetas/:id obtiene la receta con sus ingredientes', async () => {
     const respuesta = await app.inject({
       method: 'GET',

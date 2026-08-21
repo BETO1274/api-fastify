@@ -18,6 +18,12 @@ export default async function fabricacionRoutes(fastify) {
     }
   })
 
+  fastify.get('/', {
+    schema: { response: { 200: Type.Array(FabricacionResponse) } }
+  }, async () => {
+    return buscarFabricaciones({})
+  })
+
   fastify.get('/:id', {
     schema: { params: FabricacionParams, response: { 200: FabricacionResponse } }
   }, async (request, reply) => {

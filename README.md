@@ -87,6 +87,8 @@ flowchart LR
 
 Todas las rutas devuelven JSON. Los cuerpos de `POST`/`PATCH`/`QUERY` van en formato `application/json`.
 
+Cada entidad expone **dos formas de leer varios registros**: `GET /` (sin body, trae todo — internamente reutiliza la misma función de búsqueda que `QUERY`, sin filtros) y `QUERY /search` (con filtros en el body). `GET /` es además la única de las dos que funciona sin restricciones contra las URLs públicas de Render — ver la nota sobre Cloudflare en [`postman/README.md`](postman/README.md).
+
 ### 1. Articulo — `/articulos`
 
 Catálogo base de materias primas y productos finales.
@@ -94,6 +96,7 @@ Catálogo base de materias primas y productos finales.
 | Verbo | Ruta | Descripción | Body |
 |---|---|---|---|
 | `POST` | `/articulos` | Crea un artículo | `{ nombre: string, tipo: "materia_prima"\|"producto_final", unidad_medida: string }` |
+| `GET` | `/articulos` | Lista **todos** los artículos, sin filtros | — |
 | `GET` | `/articulos/:id` | Obtiene un artículo por id | — |
 | `PATCH` | `/articulos/:id` | Actualiza parcialmente | Cualquier subconjunto del body de creación |
 | `DELETE` | `/articulos/:id` | Elimina un artículo | — |
@@ -106,6 +109,7 @@ Control de inventario, relacionado a un artículo.
 | Verbo | Ruta | Descripción | Body |
 |---|---|---|---|
 | `POST` | `/stock` | Crea una fila de stock | `{ articulo_id: integer, cantidad: number, ubicacion: string }` |
+| `GET` | `/stock` | Lista **todas** las filas de stock, sin filtros | — |
 | `GET` | `/stock/:id` | Obtiene una fila por id | — |
 | `PATCH` | `/stock/:id` | Actualiza parcialmente | Cualquier subconjunto del body de creación |
 | `DELETE` | `/stock/:id` | Elimina una fila | — |
@@ -120,6 +124,7 @@ Fórmula de producción: qué artículo final se produce y con qué ingredientes
 | Verbo | Ruta | Descripción | Body |
 |---|---|---|---|
 | `POST` | `/recetas` | Crea una receta con sus ingredientes | `{ producto_final_id: integer, ingredientes: [{ articulo_id: integer, cantidad_necesaria: number }] }` (mínimo 1 ingrediente) |
+| `GET` | `/recetas` | Lista **todas** las recetas con sus ingredientes, sin filtros | — |
 | `GET` | `/recetas/:id` | Obtiene la receta con su arreglo de ingredientes | — |
 | `PATCH` | `/recetas/:id` | Actualiza `producto_final_id` y/o **reemplaza** el arreglo completo de ingredientes | Cualquier subconjunto del body de creación |
 | `DELETE` | `/recetas/:id` | Elimina la receta (los ingredientes se eliminan en cascada) | — |
@@ -134,6 +139,7 @@ Registra una orden de fabricación ejecutada.
 | Verbo | Ruta | Descripción | Body |
 |---|---|---|---|
 | `POST` | `/fabricaciones` | **Ejecuta la fabricación** (ver regla abajo) | `{ receta_id: integer, cantidad_producir: number }` |
+| `GET` | `/fabricaciones` | Lista **todas** las fabricaciones, sin filtros | — |
 | `GET` | `/fabricaciones/:id` | Obtiene una fabricación por id | — |
 | `PATCH` | `/fabricaciones/:id` | Corrige datos del registro (no reaplica movimientos de stock) | Cualquier subconjunto del body de creación |
 | `DELETE` | `/fabricaciones/:id` | Elimina el registro (no revierte el stock) | — |

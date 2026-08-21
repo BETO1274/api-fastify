@@ -11,6 +11,12 @@ export default async function recetaRoutes(fastify) {
     return receta
   })
 
+  fastify.get('/', {
+    schema: { response: { 200: Type.Array(RecetaResponse) } }
+  }, async () => {
+    return buscarRecetas({})
+  })
+
   fastify.get('/:id', {
     schema: { params: RecetaParams, response: { 200: RecetaResponse } }
   }, async (request, reply) => {
