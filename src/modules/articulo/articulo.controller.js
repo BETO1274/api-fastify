@@ -1,4 +1,14 @@
+import { pool } from '../../config/db.js'
 
+export async function crearArticulo({ nombre, tipo, unidad_medida }) {
+  const { rows } = await pool.query(
+    `insert into articulo (nombre, tipo, unidad_medida)
+     values ($1, $2, $3)
+     returning *`,
+    [nombre, tipo, unidad_medida]
+  )
+  return rows[0]
+}
 
 export async function obtenerArticuloPorId(id) {
   const { rows } = await pool.query('select * from articulo where id = $1', [id])
