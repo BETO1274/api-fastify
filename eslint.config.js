@@ -8,7 +8,12 @@ export default [
       sourceType: 'module',
       globals: {
         process: 'readonly',
-        console: 'readonly'
+        console: 'readonly',
+        fetch: 'readonly',
+        AbortController: 'readonly',
+        crypto: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly'
       }
     }
   },
