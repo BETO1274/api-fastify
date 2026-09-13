@@ -698,6 +698,36 @@
           ]
         }
       ]
+    },
+    {
+      "name": "06 - Version 2 (integracion en tiempo real con deportBack e Inventario-U)",
+      "item": [
+        {
+          "name": "GET api/v2/articulos/top (dato real, sin ids quemados)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v2/articulos/top", "host": ["{{base_url}}"], "path": ["api", "v2", "articulos", "top"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('propaga x-trace-id', function () { pm.response.to.have.header('x-trace-id'); });",
+                  "var cuerpo = pm.response.json();",
+                  "pm.test('trae un articulo real (top de nuestra propia base)', function () { pm.expect(cuerpo.articulo).to.have.property('id'); });",
+                  "pm.test('trae la clave apis_externas con deportback e inventario_u', function () {",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('deportback');",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('inventario_u');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }
