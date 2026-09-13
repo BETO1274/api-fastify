@@ -726,6 +726,81 @@
               }
             }
           ]
+        },
+        {
+          "name": "GET api/v2/stock/top (dato real, sin ids quemados)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v2/stock/top", "host": ["{{base_url}}"], "path": ["api", "v2", "stock", "top"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('propaga x-trace-id', function () { pm.response.to.have.header('x-trace-id'); });",
+                  "var cuerpo = pm.response.json();",
+                  "pm.test('trae un stock real (top de nuestra propia base)', function () { pm.expect(cuerpo.stock).to.have.property('id'); });",
+                  "pm.test('trae la clave apis_externas con deportback e inventario_u', function () {",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('deportback');",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('inventario_u');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET api/v2/recetas/top (dato real, sin ids quemados)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v2/recetas/top", "host": ["{{base_url}}"], "path": ["api", "v2", "recetas", "top"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('propaga x-trace-id', function () { pm.response.to.have.header('x-trace-id'); });",
+                  "var cuerpo = pm.response.json();",
+                  "pm.test('trae una receta real (top de nuestra propia base)', function () { pm.expect(cuerpo.receta).to.have.property('id'); });",
+                  "pm.test('trae la clave apis_externas con deportback e inventario_u', function () {",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('deportback');",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('inventario_u');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET api/v2/fabricaciones/top (dato real, sin ids quemados)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/v2/fabricaciones/top", "host": ["{{base_url}}"], "path": ["api", "v2", "fabricaciones", "top"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('propaga x-trace-id', function () { pm.response.to.have.header('x-trace-id'); });",
+                  "var cuerpo = pm.response.json();",
+                  "pm.test('trae una fabricacion real (top de nuestra propia base)', function () { pm.expect(cuerpo.fabricacion).to.have.property('id'); });",
+                  "pm.test('trae la clave apis_externas con deportback e inventario_u', function () {",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('deportback');",
+                  "  pm.expect(cuerpo.apis_externas).to.have.property('inventario_u');",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
