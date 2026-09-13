@@ -23,9 +23,20 @@ async function obtenerApisExternas(traceId) {
   }
 }
 
-// Toma el primer elemento de una lista externa (o null si vino vacía o con error).
+// Toma el primer elemento de una lista externa (o la deja igual si vino con
+// { error }, ya que en ese caso no es un arreglo). Como los ids de cada API
+// del equipo no se corresponden entre sí (uuid vs entero, bases distintas),
+// nunca se busca por id en las APIs externas: siempre se muestra su top 1.
 function topDe(listaOError) {
-  return Array.isArray(listaOError) && listaOError.length > 0 ? listaOError[0] : null
+  return Array.isArray(listaOError) && listaOError.length > 0 ? listaOError[0] : listaOError
+}
+
+async function obtenerApisExternasTop(traceId) {
+  const apisExternas = await obtenerApisExternas(traceId)
+  return {
+    deportback: topDe(apisExternas.deportback),
+    inventario_u: topDe(apisExternas.inventario_u)
+  }
 }
 
 export default async function articuloV2Routes(fastify) {
@@ -36,7 +47,7 @@ export default async function articuloV2Routes(fastify) {
 
     const [articulos, apisExternas] = await Promise.all([
       buscarArticulos({}),
-      obtenerApisExternas(traceId)
+      obtenerApisExternasTop(traceId)
     ])
 
     const articulo = articulos[0]
@@ -44,22 +55,20 @@ export default async function articuloV2Routes(fastify) {
       return reply.code(404).send({ mensaje: 'Aún no hay artículos registrados' })
     }
 
-    return {
-      articulo,
-      apis_externas: {
-        deportback: topDe(apisExternas.deportback) ?? apisExternas.deportback,
-        inventario_u: topDe(apisExternas.inventario_u) ?? apisExternas.inventario_u
-      }
-    }
+    return { articulo, apis_externas: apisExternas }
   })
 
+  // Recibe nuestro id real (el llamador lo conoce porque es nuestro propio
+  // dato) y devuelve exactamente ese artículo. De deportBack e Inventario-U
+  // no se pasa ningún id — sus ids no se corresponden con los nuestros — se
+  // trae siempre su top 1.
   fastify.get('/:id', async (request, reply) => {
     const traceId = request.headers['x-trace-id'] ?? crypto.randomUUID()
     reply.header('x-trace-id', traceId)
 
     const [articulo, apisExternas] = await Promise.all([
       obtenerArticuloPorId(request.params.id),
-      obtenerApisExternas(traceId)
+      obtenerApisExternasTop(traceId)
     ])
 
     if (!articulo) {
