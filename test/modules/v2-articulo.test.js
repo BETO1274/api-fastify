@@ -75,8 +75,8 @@ describe('módulo v2 articulo', () => {
     expect(respuesta.headers['x-trace-id']).toBe('trace-de-prueba-123')
 
     const cuerpo = respuesta.json()
-    expect(cuerpo.apis_externas.deportback).toEqual([{ id: 'd1', nombre: 'Deportista de prueba' }])
-    expect(cuerpo.apis_externas.inventario_u).toEqual([{ id: 1, codigo: 'SKU-1', nombre: 'Sku de prueba' }])
+    expect(cuerpo.apis_externas.deportback).toEqual({ id: 'd1', nombre: 'Deportista de prueba' })
+    expect(cuerpo.apis_externas.inventario_u).toEqual({ id: 1, codigo: 'SKU-1', nombre: 'Sku de prueba' })
 
     delete process.env.DEPORTBACK_URL
     delete process.env.INVENTARIO_U_URL
