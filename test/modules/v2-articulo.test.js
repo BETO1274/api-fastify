@@ -82,6 +82,36 @@ describe('módulo v2 articulo', () => {
     delete process.env.INVENTARIO_U_URL
   })
 
+  it('GET /api/v2/articulos/top siempre usa datos reales, nunca ids inventados', async () => {
+    const servidorDeportbackTop = createServer((req, res) => {
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify([{ id: 'd1', nombre: 'Deportista top' }]))
+    }).listen(0)
+    const servidorInventarioUTop = createServer((req, res) => {
+      res.setHeader('content-type', 'application/json')
+      res.end(JSON.stringify([{ id: 1, codigo: 'SKU-1', nombre: 'Sku top' }]))
+    }).listen(0)
+
+    process.env.DEPORTBACK_URL = `http://127.0.0.1:${servidorDeportbackTop.address().port}`
+    process.env.INVENTARIO_U_URL = `http://127.0.0.1:${servidorInventarioUTop.address().port}`
+
+    const respuesta = await app.inject({
+      method: 'GET',
+      url: '/api/v2/articulos/top'
+    })
+
+    expect(respuesta.statusCode).toBe(200)
+    const cuerpo = respuesta.json()
+    expect(cuerpo.articulo).toHaveProperty('id')
+    expect(cuerpo.apis_externas.deportback).toEqual({ id: 'd1', nombre: 'Deportista top' })
+    expect(cuerpo.apis_externas.inventario_u).toEqual({ id: 1, codigo: 'SKU-1', nombre: 'Sku top' })
+
+    delete process.env.DEPORTBACK_URL
+    delete process.env.INVENTARIO_U_URL
+    servidorDeportbackTop.close()
+    servidorInventarioUTop.close()
+  })
+
   it('limpieza: elimina el artículo de prueba', async () => {
     const respuesta = await app.inject({
       method: 'DELETE',
