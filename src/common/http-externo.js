@@ -9,9 +9,15 @@ export async function fetchConTimeout(url, { traceId, timeoutMs = TIMEOUT_POR_DE
   const temporizador = setTimeout(() => controlador.abort(), timeoutMs)
 
   try {
+    const headers = {}
+    if (traceId) headers['x-trace-id'] = traceId
+    // Se envía a las otras 2 APIs del equipo para que puedan validar que la
+    // llamada viene de una de las APIs autorizadas (ver src/versions/v2.js).
+    if (process.env.TEAM_API_KEY) headers['x-api-key'] = process.env.TEAM_API_KEY
+
     const respuesta = await fetch(url, {
       signal: controlador.signal,
-      headers: traceId ? { 'x-trace-id': traceId } : {}
+      headers
     })
 
     if (!respuesta.ok) {
