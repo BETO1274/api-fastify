@@ -7,6 +7,8 @@ Esta carpeta contiene los manifiestos versionados que definen cómo se despliega
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/configmap.yaml
+# secret.local.yaml y ghcr-pull-secret se aplican aparte (ver secciones de abajo)
+kubectl apply -f k8s/deployment.yaml
 ```
 
 ## Secret (nunca versionado con valores reales)
