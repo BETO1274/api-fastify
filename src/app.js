@@ -15,6 +15,11 @@ export function buildApp() {
 
   app.register(fastifyHttpQuery)
 
+  // No depende de la base de datos: usado como liveness/readiness probe en
+  // Kubernetes, para que el Pod no se marque como no-saludable solo porque
+  // la base de datos tarda en responder.
+  app.get('/health', async () => ({ status: 'ok' }))
+
   app.register(swagger, {
     openapi: {
       info: {
