@@ -9,6 +9,7 @@ kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/configmap.yaml
 # secret.local.yaml y ghcr-pull-secret se aplican aparte (ver secciones de abajo)
 kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
 ```
 
 ## Secret (nunca versionado con valores reales)
