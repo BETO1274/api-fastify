@@ -706,6 +706,7 @@
           "name": "GET api/v2/articulos/top (dato real, sin ids quemados)",
           "request": {
             "method": "GET",
+            "header": [ { "key": "X-Api-Key", "value": "{{team_api_key}}" } ],
             "url": { "raw": "{{base_url}}/api/v2/articulos/top", "host": ["{{base_url}}"], "path": ["api", "v2", "articulos", "top"] }
           },
           "event": [
@@ -731,6 +732,7 @@
           "name": "GET api/v2/stock/top (dato real, sin ids quemados)",
           "request": {
             "method": "GET",
+            "header": [ { "key": "X-Api-Key", "value": "{{team_api_key}}" } ],
             "url": { "raw": "{{base_url}}/api/v2/stock/top", "host": ["{{base_url}}"], "path": ["api", "v2", "stock", "top"] }
           },
           "event": [
@@ -756,6 +758,7 @@
           "name": "GET api/v2/recetas/top (dato real, sin ids quemados)",
           "request": {
             "method": "GET",
+            "header": [ { "key": "X-Api-Key", "value": "{{team_api_key}}" } ],
             "url": { "raw": "{{base_url}}/api/v2/recetas/top", "host": ["{{base_url}}"], "path": ["api", "v2", "recetas", "top"] }
           },
           "event": [
@@ -781,6 +784,7 @@
           "name": "GET api/v2/fabricaciones/top (dato real, sin ids quemados)",
           "request": {
             "method": "GET",
+            "header": [ { "key": "X-Api-Key", "value": "{{team_api_key}}" } ],
             "url": { "raw": "{{base_url}}/api/v2/fabricaciones/top", "host": ["{{base_url}}"], "path": ["api", "v2", "fabricaciones", "top"] }
           },
           "event": [
