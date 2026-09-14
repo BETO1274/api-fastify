@@ -8,6 +8,15 @@ Suite de validación end-to-end contra los ambientes reales (Test, Producción y
 * `api-fastify-test.postman_environment.json` — `base_url` → Test (público, vía Render).
 * `api-fastify-produccion.postman_environment.json` — `base_url` → Producción (público, vía Render).
 * `api-fastify-local.postman_environment.json` — `base_url` → `http://localhost:3000` (servidor corriendo en tu máquina con `npm run dev`, conectado a la BD real de Supabase Test). Útil para demostrar que `QUERY` funciona sin la restricción de Cloudflare.
+* `api-fastify-aks.postman_environment.json` — `base_url` → el clúster AKS en Azure (fase 2, multicloud). ⚠️ **La IP pública no es fija**: si se borra y recrea el `Service` de Kubernetes, cambia. Verifica con `kubectl get service -n api-fastify` y actualiza el valor de `base_url` en este archivo si ya no responde.
+
+## Variable `team_api_key` (rutas `/api/v2/*`)
+
+Los 4 environments incluyen la variable `team_api_key`, **vacía a propósito** — nunca se commitea el valor real. Si el ambiente que estás probando tiene `TEAM_API_KEY` configurada del lado del servidor (por ahora, solo AKS), las rutas `/api/v2/*` responden 401 hasta que la completes:
+
+1. En Postman, abre el Environment correspondiente (ícono del ojo, arriba a la derecha).
+2. En `team_api_key`, pega el valor real (lo tienes en `credentials.local.md`, sección `TEAM_API_KEY`).
+3. Guarda — Postman guarda el valor solo en tu instalación local, no lo exporta a menos que tú mismo vuelvas a exportar el archivo (en cuyo caso, revisa antes de comitear que no quedó el valor real adentro).
 
 ## Cómo correrla
 
@@ -28,6 +37,7 @@ Con `newman` (CLI, no requiere abrir Postman):
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-test.postman_environment.json
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-produccion.postman_environment.json
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-local.postman_environment.json  # requiere `npm run dev` corriendo
+npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-aks.postman_environment.json
 ```
 
 ## ⚠️ Nota sobre el verbo QUERY
@@ -39,3 +49,5 @@ Los requests `QUERY` de esta colección detectan ese bloqueo específico (405 + 
 Como efecto colateral, el paso de limpieza que borra el stock generado por `fabricacion` (que depende de `QUERY /stock/search` para encontrar la fila) tampoco puede autolimpiarse contra las URLs públicas — queda documentado en el propio test, y se puede borrar a mano desde el Table Editor de Supabase si hace falta.
 
 **Contra `Local`, en cambio, `QUERY` funciona normal** (no hay Cloudflare de por medio) — la corrida completa contra `localhost` pasa las 49 assertions sin ningún bloqueo ni limpieza pendiente, confirmando que la implementación de `QUERY` es correcta y el único problema es la capa de infraestructura de Render.
+
+**Contra `AKS`, `QUERY` también funciona normal** — el Load Balancer de Azure no bloquea métodos HTTP no estándar como sí lo hace Cloudflare frente a Render.
