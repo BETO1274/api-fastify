@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-fastify-config
+  namespace: api-fastify
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  # Se completan cuando los compañeros compartan sus URLs desplegadas.
+  DEPORTBACK_URL: ""
+  INVENTARIO_U_URL: ""
