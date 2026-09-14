@@ -112,6 +112,29 @@ describe('módulo v2 articulo', () => {
     servidorInventarioUTop.close()
   })
 
+  it('GET /api/v2/articulos/:id responde 401 si TEAM_API_KEY está configurada y no llega o es incorrecta', async () => {
+    process.env.TEAM_API_KEY = 'clave-secreta-del-equipo'
+
+    const sinHeader = await app.inject({ method: 'GET', url: `/api/v2/articulos/${articuloId}` })
+    expect(sinHeader.statusCode).toBe(401)
+
+    const headerIncorrecto = await app.inject({
+      method: 'GET',
+      url: `/api/v2/articulos/${articuloId}`,
+      headers: { 'x-api-key': 'clave-equivocada' }
+    })
+    expect(headerIncorrecto.statusCode).toBe(401)
+
+    const headerCorrecto = await app.inject({
+      method: 'GET',
+      url: `/api/v2/articulos/${articuloId}`,
+      headers: { 'x-api-key': 'clave-secreta-del-equipo' }
+    })
+    expect(headerCorrecto.statusCode).toBe(200)
+
+    delete process.env.TEAM_API_KEY
+  })
+
   it('limpieza: elimina el artículo de prueba', async () => {
     const respuesta = await app.inject({
       method: 'DELETE',
