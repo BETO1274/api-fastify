@@ -6,6 +6,5 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "3000"
-  # Se completan cuando los compañeros compartan sus URLs desplegadas.
   DEPORTBACK_URL: "http://35.224.94.116"
-  INVENTARIO_U_URL: ""
+  INVENTARIO_U_URL: "http://158.247.121.202"
