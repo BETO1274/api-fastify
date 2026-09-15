@@ -4,7 +4,7 @@
 //
 //   DATABASE_URL="postgresql://..." node infra/scripts/seed-produccion.js
 
-const { Client } = require('pg')
+import { Client } from 'pg'
 
 const CONNECTION_STRING = process.env.DATABASE_URL
 
