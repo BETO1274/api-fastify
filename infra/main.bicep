@@ -114,6 +114,23 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-05-01' = {
         type: 'VirtualMachineScaleSets'
       }
     ]
+    networkProfile: {
+      networkPlugin: 'azure'
+      networkPluginMode: 'overlay'
+      loadBalancerSku: 'Standard'
+    }
+    oidcIssuerProfile: {
+      enabled: true
+    }
+    securityProfile: {
+      workloadIdentity: {
+        enabled: true
+      }
+      imageCleaner: {
+        enabled: true
+        intervalHours: 168
+      }
+    }
     addonProfiles: {
       omsagent: {
         enabled: true
