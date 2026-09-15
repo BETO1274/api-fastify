@@ -9,18 +9,38 @@ No incluye una IP pública fija — al recrear el clúster, el `Service` de Kube
 * Azure CLI (`az`) instalado y autenticado (`az login`).
 * El Resource Group `DEVOPS` debe existir (no lo crea este Bicep, es intencional — así no se borra por accidente si algún día se destruyen los recursos de adentro).
 
-## Desplegar (crear todo desde cero)
+## Desplegar TODO desde cero (infraestructura + datos + app)
 
+Hay un archivo `infra/scripts/.env.local` (gitignorado, no se sube nunca) con las variables reales ya listas — evita tener que copiarlas a mano desde `credentials.local.md` cada vez. Si no existe (por ejemplo, en una máquina nueva), créalo con este formato antes de empezar:
+
+```
+ORIGEN_URL=<connection string de Supabase Producción>
+DESTINO_URL=<connection string del Azure Postgres nuevo, con ?sslmode=require>
+DATABASE_URL=<mismo valor que DESTINO_URL>
+POSTGRES_ADMIN_PASSWORD=<la misma password>
+```
+
+**Paso 1 — Infraestructura (AKS + PostgreSQL vacío):**
 ```powershell
 az deployment group create `
   --resource-group DEVOPS `
   --template-file infra/main.bicep `
   --parameters postgresAdminPassword='TU_PASSWORD_AQUI'
 ```
+Tarda ~10-15 minutos (AKS es lo que más demora).
 
-Tarda aproximadamente 10-15 minutos (AKS es lo que más demora). Al terminar, sigue con el orden de `k8s/README.md` (namespace, configmap, secret, deployment, service) para desplegar la aplicación en el clúster nuevo.
+**Paso 2 — Esquema + datos reales** (copia el esquema y los datos desde Supabase Producción al Postgres nuevo, preservando ids):
+```powershell
+node --env-file=infra/scripts/.env.local infra/scripts/migrar-a-azure.js
+```
 
-**Importante:** la contraseña se pasa como parámetro en el comando, **nunca** se escribe en `main.bicep`. Usa la misma que ya tienes guardada en `credentials.local.md`, o define una nueva y actualiza `credentials.local.md` y `k8s/secret.local.yaml` después.
+**Paso 3 — Desplegar la aplicación en el clúster nuevo:** sigue el orden de `k8s/README.md` (namespace, configmap con las URLs de deportBack/Inventario-U, secret con `DATABASE_URL`+`TEAM_API_KEY`, deployment, service).
+
+**Paso 4 — Actualizar lo que cambió:**
+* La IP pública del nuevo `Service` es distinta — actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/api-fastify-aks.local.postman_environment.json`.
+* Avisa al equipo la IP nueva si la estaban usando.
+
+**Importante:** la contraseña de PostgreSQL se pasa como parámetro en el comando, **nunca** se escribe en `main.bicep`.
 
 ## Destruir todo (para bajar a $0 real)
 
@@ -32,7 +52,7 @@ az aks delete --resource-group DEVOPS --name kubernet-devops --yes
 az postgres flexible-server delete --resource-group DEVOPS --name devops1274 --yes
 ```
 
-Esto es irreversible: se pierden los datos de la base de datos en Azure (aunque ya tenemos el script de seed y la copia en Supabase Producción como respaldo). El Resource Group `DEVOPS` en sí queda vacío pero no se borra.
+Esto es irreversible: se pierden los datos de la base de datos en Azure. No pasa nada — la copia real sigue intacta en Supabase Producción, y `infra/scripts/migrar-a-azure.js` la vuelve a traer completa (ver "Desplegar" arriba). El Resource Group `DEVOPS` en sí queda vacío pero no se borra.
 
 ## Diferencias vs. lo creado manualmente por el portal
 
