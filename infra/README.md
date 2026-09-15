@@ -38,4 +38,9 @@ Esto es irreversible: se pierden los datos de la base de datos en Azure (aunque 
 
 * No incluye una IP pública fija (ver arriba).
 * Las 29+ reglas de alerta recomendadas que Azure sugiere en el asistente del portal no están declaradas aquí — hay que volver a habilitarlas manualmente después de desplegar, o agregarlas al Bicep más adelante si se justifica el esfuerzo.
+* **Métricas del plano de control** (`azureMonitorProfile.metrics.controlPlane`): activadas manualmente en el portal, pero el tipo de Bicep de la API `2024-05-01` no reconoce esa propiedad (`BCP037`) — hay que volver a activar el checkbox "Habilitar métricas del plano de control" a mano en el portal después de desplegar, si se quiere ese dato.
 * El firewall del servidor de PostgreSQL usa la regla `AllowAll` (0.0.0.0-255.255.255.255) por las mismas razones documentadas en `credentials.local.md` (GitHub Actions/Render/AKS no tienen IP de salida fija).
+
+## Auditoría de fidelidad (15/sep)
+
+Se comparó el Bicep contra la configuración real exportada con `az aks show` / `az postgres flexible-server show`. Coincide en: SKU/tier, versión de Kubernetes, versión de PostgreSQL, tamaño y cantidad de nodos, storage, backup, alta disponibilidad, red pública, **tipo de red (Azure CNI overlay)**, **Load Balancer Standard**, **identidad de carga de trabajo (OIDC + workload identity)**, y **limpiador de imágenes** — todo esto se agregó al Bicep tras la auditoría (antes faltaba). Las únicas diferencias conocidas que quedan son las 3 listadas arriba (IP fija, reglas de alerta, métricas del plano de control), ninguna bloqueante para que la API funcione igual.
