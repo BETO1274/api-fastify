@@ -40,6 +40,22 @@ node --env-file=infra/scripts/.env.local infra/scripts/migrar-a-azure.js
 * La IP pública del nuevo `Service` es distinta — actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/api-fastify-aks.local.postman_environment.json`.
 * Avisa al equipo la IP nueva si la estaban usando.
 
+**Paso 5 — Reactivar lo que el Bicep no cubre (alertas + métricas del plano de control):**
+
+Esto es manual porque el asistente del portal las activa como una acción aparte, no como una propiedad del recurso AKS (ver "Diferencias" más abajo).
+
+*Reglas de alerta recomendadas:*
+1. Portal de Azure → busca el servicio **"Monitor"** (no el recurso del clúster) → menú izquierdo **"Alerts"** → **"Recommended alert rules"** (o el ícono ⚡ "Discover more insights and configure recommended alert rules").
+2. En el selector de recurso, elige la suscripción → Resource Group **DEVOPS** → el clúster **kubernet-devops**.
+3. Aparece la misma pantalla que viste al crear el clúster (reglas de la comunidad de Prometheus, métricas de plataforma, fin de soporte de Kubernetes, actualizaciones de NodeOS/clúster) — todas marcadas por defecto.
+4. Completa **"Correo electrónico de notificación de alerta"** con tu correo.
+5. Clic en **"Create"** / **"Crear"** para aplicar las reglas.
+
+*Métricas del plano de control:*
+1. Sobre el recurso del clúster `kubernet-devops` en el portal → menú izquierdo, sección **"Monitoring"** → **"Insights"**.
+2. Ícono de engranaje ⚙️ **"Monitor settings"** (arriba a la derecha del panel de Insights).
+3. Activa el toggle **"Enable control plane metrics"** / "Habilitar métricas del plano de control" → Guardar.
+
 **Importante:** la contraseña de PostgreSQL se pasa como parámetro en el comando, **nunca** se escribe en `main.bicep`.
 
 ## Destruir todo (para bajar a $0 real)
@@ -53,6 +69,23 @@ az postgres flexible-server delete --resource-group DEVOPS --name devops1274 --y
 ```
 
 Esto es irreversible: se pierden los datos de la base de datos en Azure. No pasa nada — la copia real sigue intacta en Supabase Producción, y `infra/scripts/migrar-a-azure.js` la vuelve a traer completa (ver "Desplegar" arriba). El Resource Group `DEVOPS` en sí queda vacío pero no se borra.
+
+**Para $0 total de verdad, también hay que limpiar los residuos huérfanos** que dejan las alertas/Prometheus/monitoreo (no desaparecen solos al borrar el AKS — quedan apuntando a un clúster que ya no existe, y algunos siguen cobrando por evaluación programada):
+
+```powershell
+# Todo lo huérfano dentro de DEVOPS, excepto la cuenta de Azure Monitor (se borra aparte)
+$ids = az resource list --resource-group DEVOPS --query "[?type != 'microsoft.monitor/accounts'].id" -o tsv
+az resource delete --ids $ids
+
+# La cuenta de Azure Monitor (Prometheus)
+az resource delete --ids "/subscriptions/<TU_SUBSCRIPTION_ID>/resourceGroups/DEVOPS/providers/microsoft.monitor/accounts/defaultazuremonitorworkspace-wus"
+
+# El Log Analytics Workspace, que Azure crea en un grupo aparte
+az resource list --resource-group DefaultResourceGroup-WUS --query "[].id" -o tsv
+# copia el id que imprima y bórralo con: az resource delete --ids "<ese id>"
+```
+
+Verificación: `az resource list --resource-group DEVOPS` debe devolver vacío.
 
 ## Diferencias vs. lo creado manualmente por el portal
 
