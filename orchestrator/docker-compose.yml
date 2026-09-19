@@ -1,4 +1,18 @@
 services:
+  # Base de datos local para el estado de las tareas (tabla orquestador_tarea).
+  # Puerto 5433 para no chocar con un Postgres local en el 5432.
+  postgres:
+    container_name: orchestrator-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orquestador
+      POSTGRES_PASSWORD: orquestador_dev
+      POSTGRES_DB: orquestador
+    ports:
+      - "5433:5432"
+    volumes:
+      - "./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql"
+
   sqledge:
     container_name: orchestrator-sqledge
     image: mcr.microsoft.com/azure-sql-edge:latest
