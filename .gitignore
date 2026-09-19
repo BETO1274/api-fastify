@@ -14,5 +14,5 @@ context.md
 
 # Credenciales locales (no deben subirse jamás)
 credentials.local.md
-k8s/secret.local.yaml
+k8s/**/secret.local.yaml
 postman/*.local.postman_environment.json

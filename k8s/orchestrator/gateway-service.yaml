@@ -1,0 +1,14 @@
+# Único Service con IP pública de este namespace.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: orchestrator
+spec:
+  type: LoadBalancer
+  selector:
+    app: gateway
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3200

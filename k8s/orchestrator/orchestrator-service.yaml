@@ -1,0 +1,16 @@
+# ClusterIP: el orquestador NO es accesible desde internet. Reenvía a las 3 APIs
+# usando la TEAM_API_KEY, así que solo el gateway (mismo namespace) debe poder
+# llamarlo.
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: orchestrator
+spec:
+  type: ClusterIP
+  selector:
+    app: orchestrator
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3100
