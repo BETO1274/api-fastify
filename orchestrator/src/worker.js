@@ -6,6 +6,7 @@ if (existsSync('.env')) {
 
 const { ServiceBusClient } = await import('@azure/service-bus')
 const { despachar } = await import('./dispatcher.js')
+const { actualizarTarea } = await import('./tareas.js')
 
 const QUEUE_NAME = process.env.SERVICEBUS_QUEUE_NAME || 'tareas-orquestador'
 const MAX_DELIVERY_COUNT = Number(process.env.SERVICEBUS_MAX_DELIVERY_COUNT || 3)
@@ -19,6 +20,16 @@ if (!connectionString) {
 const client = new ServiceBusClient(connectionString)
 const receiver = client.createReceiver(QUEUE_NAME)
 
+// Guarda el estado de la tarea; si la BD falla, lo registra en el log pero no
+// interrumpe el manejo del mensaje de la cola.
+async function registrarEstado(id, cambios) {
+  try {
+    await actualizarTarea(id, cambios)
+  } catch (error) {
+    console.error(`No se pudo guardar el estado de la tarea ${id}: ${error.message}`)
+  }
+}
+
 console.log(`Worker escuchando la cola "${QUEUE_NAME}"...`)
 
 receiver.subscribe({
@@ -26,22 +37,25 @@ receiver.subscribe({
     const tarea = mensaje.body
     console.log(`Procesando tarea ${tarea.id}: ${tarea.metodo} ${tarea.servicio}${tarea.ruta}`)
 
+    let resultado
     try {
-      const resultado = await despachar({
+      resultado = await despachar({
         servicio: tarea.servicio,
         metodo: tarea.metodo,
         ruta: tarea.ruta,
         body: tarea.body,
         traceId: tarea.id
       })
-      console.log(`Tarea ${tarea.id} completada — status ${resultado.status}`)
-      await receiver.completeMessage(mensaje)
     } catch (error) {
       const intentoActual = mensaje.deliveryCount + 1
       const esUltimoIntento = intentoActual >= MAX_DELIVERY_COUNT
 
       if (esUltimoIntento) {
         console.error(`Tarea ${tarea.id} falló definitivamente tras ${intentoActual} intentos: ${error.message} — cae a dead-letter`)
+        await registrarEstado(tarea.id, {
+          estado: 'fallido',
+          resultado: { error: error.message, intentos: intentoActual }
+        })
         await receiver.deadLetterMessage(mensaje, {
           deadLetterReason: 'FalloDespacho',
           deadLetterErrorDescription: error.message
@@ -50,7 +64,14 @@ receiver.subscribe({
         console.warn(`Tarea ${tarea.id} falló (intento ${intentoActual}/${MAX_DELIVERY_COUNT}): ${error.message} — reintentando`)
         await receiver.abandonMessage(mensaje)
       }
+      return
     }
+
+    // El despacho ya ocurrió: aunque no se pueda guardar el estado, el mensaje
+    // se completa igual para no repetir el efecto (por ejemplo, un POST doble).
+    console.log(`Tarea ${tarea.id} completada — status ${resultado.status}`)
+    await registrarEstado(tarea.id, { estado: 'completado', resultado })
+    await receiver.completeMessage(mensaje)
   },
   processError: async (args) => {
     console.error('Error en el receiver de la cola:', args.error)
