@@ -1,6 +1,6 @@
 # Plan — Gateway + Orchestrator + Cola (componentes transversales, Azure)
 
-> Estado (19/sep): pasos 1 a 4 **hechos y en `produccion`**. Falta el contrato de Cache (deportBack) y Storage (Inventario-U) para cerrar el flujo completo; el Dockerfile, los manifiestos de K8s y el gateway no dependen de eso y se pueden construir ya.
+> Estado (19/sep): pasos 1 a 4 **hechos y en `produccion`**; pasos 6 y 7 (Dockerfiles, manifiestos de K8s, gateway y cola en el Bicep) **construidos**, probados en local con contenedores pero **sin desplegar en AKS** (el clúster está borrado). Falta el contrato de Cache (deportBack) y Storage (Inventario-U) para cerrar el flujo completo (paso 5).
 
 ## Reparto de componentes transversales del equipo
 
@@ -79,16 +79,19 @@ Antes que nada, confirmar si cada uno es una **API HTTP suya** o un **servicio n
 | 3 | Worker + dispatcher genérico, reintentos y dead-letter | ✅ |
 | 4 | Estado de tareas compartido en Postgres (`orquestador_tarea`) | ✅ |
 | 5 | Cache + Storage en el flujo del orquestador | ⏳ bloqueado por los contratos |
-| 6 | Dockerfile + manifiestos K8s del orquestador y el worker (namespace `orchestrator`, mismo clúster; `ClusterIP`) | pendiente, no bloqueado |
-| 7 | Gateway (microservicio nuevo, `LoadBalancer`) | pendiente, no bloqueado |
+| 6 | Dockerfile + manifiestos K8s del orquestador y el worker (namespace `orchestrator`, mismo clúster; `ClusterIP`) + cola de Service Bus en `infra/main.bicep` | ✅ construido, sin desplegar |
+| 7 | Gateway (`gateway/`, `LoadBalancer`) | ✅ construido, sin desplegar |
 
 ## Archivos a crear
 
-- `orchestrator/src/cache-cliente.js`, `orchestrator/src/storage-cliente.js` — mismo patrón que `http-externo.js` (timeout corto, degradación elegante si el servicio no está configurado).
-- `gateway/` — proyecto Node independiente (`package.json`, `src/app.js`, `src/server.js`, `test/`, `Dockerfile`).
-- `orchestrator/Dockerfile`.
-- `k8s/orchestrator-deployment.yaml`, `k8s/orchestrator-service.yaml` (`ClusterIP`), `k8s/worker-deployment.yaml`, `k8s/gateway-deployment.yaml`, `k8s/gateway-service.yaml` (`LoadBalancer`).
-- `infra/main.bicep` — agregar el namespace y la cola de Azure Service Bus (tier Basic) y la base de datos de la tabla `orquestador_tarea`.
+Pendiente (paso 5): `orchestrator/src/cache-cliente.js` y `orchestrator/src/storage-cliente.js` — mismo patrón que `http-externo.js` (timeout corto, degradación elegante si el servicio no está configurado).
+
+Ya creados (pasos 6 y 7):
+- `gateway/` — proyecto Node independiente, con su `Dockerfile`, pruebas y README.
+- `orchestrator/Dockerfile` — una imagen para el servidor y el worker.
+- `k8s/orchestrator/` — namespace, configmap, secret de ejemplo, deployments de `orchestrator`, `worker` y `gateway`, y los services (`ClusterIP` para el orquestador, `LoadBalancer` para el gateway).
+- `infra/main.bicep` — namespace y cola de Azure Service Bus (tier Basic). La tabla `orquestador_tarea` va en la misma base de Azure, con `npm run db:init`.
+- Los dos pipelines existentes ahora también prueban, construyen, hacen smoke test y publican las imágenes del orquestador y del gateway (se mantienen los 2 pipelines).
 
 ## Verificación
 
