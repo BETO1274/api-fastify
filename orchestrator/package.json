@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "node --watch --env-file=.env src/server.js",
     "start": "node src/server.js",
+    "worker": "node --watch --env-file=.env src/worker.js",
     "lint": "eslint .",
     "test": "vitest run"
   },
