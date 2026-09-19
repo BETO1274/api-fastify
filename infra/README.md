@@ -1,6 +1,6 @@
 # Infraestructura como código (Bicep)
 
-Este archivo (`main.bicep`) recrea la infraestructura de Azure que usamos para la fase 2 (multicloud): el servidor de PostgreSQL (tier gratis) y el clúster AKS con monitoreo nativo (Container Insights + Prometheus administrado).
+Este archivo (`main.bicep`) recrea la infraestructura de Azure que usamos para la fase 2 (multicloud): el servidor de PostgreSQL (tier gratis), el clúster AKS con monitoreo nativo (Container Insights + Prometheus administrado) y el namespace de Azure Service Bus con la cola `tareas-orquestador` (tier Basic, con dead-letter queue).
 
 No incluye una IP pública fija — al recrear el clúster, el `Service` de Kubernetes obtiene una IP nueva. Hay que actualizar `postman/api-fastify-aks.postman_environment.json` y avisarle al equipo cuando eso pase.
 
@@ -27,17 +27,27 @@ az deployment group create `
   --template-file infra/main.bicep `
   --parameters postgresAdminPassword='TU_PASSWORD_AQUI'
 ```
-Tarda ~10-15 minutos (AKS es lo que más demora).
+Tarda ~10-15 minutos (AKS es lo que más demora). También crea el namespace de Service Bus y su cola; el nombre del namespace sale en los outputs (`serviceBusNamespace`).
 
 **Paso 2 — Esquema + datos reales** (copia el esquema y los datos desde Supabase Producción al Postgres nuevo, preservando ids):
 ```powershell
 node --env-file=infra/scripts/.env.local infra/scripts/migrar-a-azure.js
 ```
 
-**Paso 3 — Desplegar la aplicación en el clúster nuevo:** sigue el orden de `k8s/README.md` (namespace, configmap con las URLs de deportBack/Inventario-U, secret con `DATABASE_URL`+`TEAM_API_KEY`, deployment, service).
+**Paso 2b — Tabla del orquestador** (una vez, en la misma base de Azure):
+```powershell
+cd orchestrator
+$env:DATABASE_URL = "<la misma DESTINO_URL, con ?sslmode=require>"
+npm run db:init
+```
+
+**Paso 3 — Desplegar la aplicación en el clúster nuevo:**
+* La API: sigue el orden de `k8s/README.md` (namespace, configmap con las URLs de deportBack/Inventario-U, secret con `DATABASE_URL`+`TEAM_API_KEY`, deployment, service).
+* Gateway, orquestador y worker: sigue `k8s/orchestrator/README.md` (incluye cómo sacar la connection string de Service Bus).
 
 **Paso 4 — Actualizar lo que cambió:**
-* La IP pública del nuevo `Service` es distinta — actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/api-fastify-aks.local.postman_environment.json`.
+* La IP pública del nuevo `Service` de la API es distinta — actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/api-fastify-aks.local.postman_environment.json`.
+* El `Service` `gateway` también recibe una IP pública nueva: esa es la que hay que pasarle al equipo como punto de entrada.
 * Avisa al equipo la IP nueva si la estaban usando.
 
 **Paso 5 — Reactivar lo que el Bicep no cubre (alertas + métricas del plano de control):**
@@ -66,6 +76,10 @@ az aks delete --resource-group DEVOPS --name kubernet-devops --yes
 
 # Borra el servidor de PostgreSQL
 az postgres flexible-server delete --resource-group DEVOPS --name devops1274 --yes
+
+# Borra el namespace de Service Bus (tier Basic: casi sin costo, pero queda huérfano)
+$ns = az servicebus namespace list -g DEVOPS --query "[0].name" -o tsv
+az servicebus namespace delete -g DEVOPS -n $ns
 ```
 
 Esto es irreversible: se pierden los datos de la base de datos en Azure. No pasa nada — la copia real sigue intacta en Supabase Producción, y `infra/scripts/migrar-a-azure.js` la vuelve a traer completa (ver "Desplegar" arriba). El Resource Group `DEVOPS` en sí queda vacío pero no se borra.
@@ -90,6 +104,7 @@ Verificación: `az resource list --resource-group DEVOPS` debe devolver vacío.
 ## Diferencias vs. lo creado manualmente por el portal
 
 * No incluye una IP pública fija (ver arriba).
+* La cola de Service Bus sí está en el Bicep, pero **no se probó desplegada** (solo se compiló con `az bicep build`); las pruebas del orquestador se hicieron contra el emulador local.
 * Las 29+ reglas de alerta recomendadas que Azure sugiere en el asistente del portal no están declaradas aquí — hay que volver a habilitarlas manualmente después de desplegar, o agregarlas al Bicep más adelante si se justifica el esfuerzo.
 * **Métricas del plano de control** (`azureMonitorProfile.metrics.controlPlane`): activadas manualmente en el portal, pero el tipo de Bicep de la API `2024-05-01` no reconoce esa propiedad (`BCP037`) — hay que volver a activar el checkbox "Habilitar métricas del plano de control" a mano en el portal después de desplegar, si se quiere ese dato.
 * El firewall del servidor de PostgreSQL usa la regla `AllowAll` (0.0.0.0-255.255.255.255) por las mismas razones documentadas en `credentials.local.md` (GitHub Actions/Render/AKS no tienen IP de salida fija).

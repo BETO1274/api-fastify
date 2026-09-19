@@ -33,6 +33,15 @@ param aksNodeVmSize string = 'Standard_D2s_v6'
 @description('DNS prefix del clúster AKS')
 param aksDnsPrefix string = 'kubernet-devops-dns'
 
+@description('Nombre del namespace de Azure Service Bus (único globalmente, se deriva del Resource Group)')
+param serviceBusNamespaceName string = 'sb-${uniqueString(resourceGroup().id)}'
+
+@description('Nombre de la cola de tareas del orquestador')
+param serviceBusQueueName string = 'tareas-orquestador'
+
+@description('Intentos de entrega antes de mandar un mensaje a la dead-letter queue (debe coincidir con SERVICEBUS_MAX_DELIVERY_COUNT en k8s/orchestrator/configmap.yaml)')
+param serviceBusMaxDeliveryCount int = 3
+
 // ── Log Analytics Workspace (para Container Insights / logs de los pods) ──
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: 'DefaultWorkspace-${uniqueString(resourceGroup().id)}-${location}'
@@ -147,5 +156,29 @@ resource aks 'Microsoft.ContainerService/managedClusters@2024-05-01' = {
   }
 }
 
+// ── Azure Service Bus (cola del orquestador) ──
+// Tier Basic: cuesta centavos por millón de operaciones y trae dead-letter
+// queue nativa, que es lo que necesitamos.
+resource serviceBus 'Microsoft.ServiceBus/namespaces@2022-10-01-preview' = {
+  name: serviceBusNamespaceName
+  location: location
+  sku: {
+    name: 'Basic'
+    tier: 'Basic'
+  }
+}
+
+resource colaTareas 'Microsoft.ServiceBus/namespaces/queues@2022-10-01-preview' = {
+  parent: serviceBus
+  name: serviceBusQueueName
+  properties: {
+    maxDeliveryCount: serviceBusMaxDeliveryCount
+    lockDuration: 'PT1M'
+    deadLetteringOnMessageExpiration: true
+    defaultMessageTimeToLive: 'P1D'
+  }
+}
+
 output aksNombre string = aks.name
 output postgresHost string = postgresServer.properties.fullyQualifiedDomainName
+output serviceBusNamespace string = serviceBus.name
