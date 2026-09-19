@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+test
+coverage
+*.md
+docker-compose.yml
+emulator-config.json
+db
+scripts
