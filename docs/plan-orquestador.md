@@ -1,77 +1,99 @@
-# Plan — Orchestrator + Cola (componente transversal, Azure)
+# Plan — Gateway + Orchestrator + Cola (componentes transversales, Azure)
 
-> Estado: **pendiente de implementar**. Este documento es el plan aprobado a la fecha; falta el contrato de Cache (deportBack) y Storage (Inventario-U) antes de poder construir el flujo completo.
+> Estado (19/sep): pasos 1 a 4 **hechos y en `produccion`**. Falta el contrato de Cache (deportBack) y Storage (Inventario-U) para cerrar el flujo completo; el Dockerfile, los manifiestos de K8s y el gateway no dependen de eso y se pueden construir ya.
 
 ## Reparto de componentes transversales del equipo
 
-| Componente | Responsable | 
+| Componente | Responsable |
 |---|---|
-| Orchestrator + Cola | Nosotros (Azure) |
-| Cache + Gateway | deportBack ("sport") |
+| Gateway + Orchestrator + Cola | Nosotros (Azure) |
+| Cache | deportBack ("sport") |
 | Storage + Analítica transversal | Inventario-U ("inventory") |
+
+Nota: el gateway estaba asignado a deportBack en una versión anterior de este plan; quedó en nuestro lado.
+
+## Flujo completo
+
+```
+Cliente ──► Gateway ──► Orquestador ─┬─► Cache      (deportBack)
+            (nuestro)   (nuestro)    ├─► Storage    (Inventario-U)
+                                     └─► API destino (api_fastify | deportback | inventario_u)
+```
+
+**Lectura (`GET`):**
+1. Consulta el **Cache**; si hay dato, lo devuelve.
+2. Si no, consulta el **Storage**; si hay dato, lo devuelve y repuebla el Cache.
+3. Si tampoco, llama a la **API real**, guarda el resultado en Cache y en Storage, y lo devuelve.
+
+**Escritura (`POST`/`PUT`/`PATCH`/`DELETE`/`QUERY` que modifica):** va siempre a la API real, por la cola. Al terminar guarda el JSON en el Storage e invalida en el Cache las keys afectadas.
+
+## Gateway (nuevo microservicio nuestro)
+
+- Es el **único componente con IP pública**. Recibe cualquier petición y la reenvía al orquestador; no decide nada de negocio.
+- Valida `X-Api-Key` de quien llama, genera `X-Trace-Id` si no llega y lo propaga.
+- Traduce `{método} /{servicio}/{ruta...}` (con su body) a la petición `POST /orquestar` `{servicio, metodo, ruta, body}` del orquestador, y devuelve lo que el orquestador responda.
+- Soporta los 6 verbos, incluido `QUERY` (con `@thecodepace/fastify-http-query`).
+
+**Por qué el orquestador no debe exponerse directo:** reenvía a las 3 APIs usando la `TEAM_API_KEY` compartida. Si `POST /orquestar` fuera público y sin autenticación, cualquiera podría escribir y borrar datos en las 3 APIs con esa key. Por eso en Kubernetes el orquestador va como `Service` `ClusterIP` (solo interno) y solo el gateway es `LoadBalancer`.
 
 ## Qué hace el Orchestrator
 
-- Recibe HTTP (`POST /orquestar`), no ejecuta nada directamente — valida y encola.
-- Responde de inmediato (`202 Accepted` + id de tarea), sin esperar el procesamiento.
-- Expone `GET /orquestar/:id` para consultar el estado (pendiente / completado / fallido).
+- `POST /orquestar` valida `{servicio, metodo, ruta, body}` (dispatcher genérico, 6 verbos × 3 APIs), guarda la tarea en la tabla `orquestador_tarea` y la encola en Azure Service Bus. Responde `202` con el id.
+- `GET /orquestar/:id` consulta el estado (`pendiente` / `completado` / `fallido`).
+- El **worker** (proceso aparte) toma cada mensaje, despacha a la API con `X-Api-Key` y `X-Trace-Id`, reintenta hasta `MaxDeliveryCount` y luego manda a la dead-letter queue.
 
-## La cola
+Nota sobre QUERY: si `servicio: "api_fastify"` apunta a nuestra URL de Render, QUERY falla por el bloqueo de Cloudflare (ver `postman/README.md`). Debe apuntar a la URL de AKS.
 
-- **Azure Service Bus** (tier Basic — barato, con dead-letter queue nativa).
-- Reintentos automáticos ante fallo; tras agotarlos, el mensaje cae a la dead-letter queue en vez de perderse.
+## Decisión de diseño pendiente de confirmar: ¿síncrono o asíncrono?
 
-## Dispatcher genérico (decisión ya tomada)
+Con la cola, la respuesta natural es asíncrona (`202` + id). Pero un cache que responde tarde no sirve. **Propuesta (híbrida):**
 
-El mensaje encolado trae la petición completa a reenviar — no son casos de uso fijos, es un despachador genérico que cubre los 6 verbos (GET, POST, PATCH/PUT, DELETE, QUERY) de las 3 APIs sin código adicional por combinación:
+- **`GET`:** la consulta al Cache y al Storage se hace **dentro del handler**, de forma síncrona. Si hay dato responde `200` de inmediato con un campo `origen` (`cache` / `storage`). Si no lo hay, encola (`202` + id); el worker llama a la API, guarda en Cache y Storage, y el cliente consulta `GET /orquestar/:id` o repite el `GET` (que ahora ya da cache hit).
+- **Escrituras:** siempre `202` + id, por la cola.
 
-```json
-{
-  "servicio": "api_fastify" | "deportback" | "inventario_u",
-  "metodo": "GET" | "POST" | "PATCH" | "DELETE" | "QUERY",
-  "ruta": "/fabricaciones",
-  "body": { "receta_id": 5, "cantidad_producir": 10 }
-}
-```
+Alternativa descartada por ahora: que el handler espere el resultado del worker (long-poll). Es más cómodo para el cliente pero más complejo.
 
-Nota sobre QUERY: si `servicio: "api_fastify"` apunta a nuestra URL de Render, QUERY falla por el bloqueo de Cloudflare (documentado en `postman/README.md`) — para que el orquestador pueda usar QUERY contra nosotros de forma confiable, debe estar configurado con la URL de AKS.
+## Consistencia del Cache
 
-## Flujo del worker (versión completa, con Cache y Storage)
+- Key: `{servicio}:{ruta}` (incluyendo query string).
+- Tras una escritura exitosa sobre `/x/:id`, invalidar `/x/:id` y `/x` (la lista).
+- TTL corto como red de seguridad ante datos que cambian por fuera del orquestador.
+- Storage: guarda cada JSON; qué versión se lee y cómo se versiona depende del contrato de Inventario-U.
 
-1. Toma el mensaje de la cola.
-2. **Si `metodo == GET`:** primero consulta el Cache de deportBack (key derivada de `servicio` + `ruta`). Si hay dato, lo usa directo. Si no, llama a la API real y escribe el resultado en el Cache (write-through) para la próxima consulta.
-3. **Si `metodo != GET`** (escritura): va directo a la API real, nunca pasa por cache.
-4. **Siempre, al terminar (éxito o fallo):** guarda el JSON del resultado (petición + respuesta + estado) en el Storage de Inventario-U, alimentando su capa de analítica transversal.
-5. Actualiza el estado de la tarea en nuestra propia base de datos (tabla nueva `orquestador_tarea`).
-6. Si falla tras los reintentos de Service Bus, el mensaje cae a la dead-letter queue.
+## Pendiente bloqueante: contratos de Cache y Storage
 
-## Pendiente antes de implementar (bloqueante)
+Antes que nada, confirmar si cada uno es una **API HTTP suya** o un **servicio nativo** (Redis, S3, OCI Object Storage), porque cambia el cliente que usamos.
 
-Pedir a los compañeros el contrato exacto de sus servicios:
+**deportBack (Cache):** ¿sigue arriba `35.224.94.116`? (hacía timeout el 19/sep). URL o `host:puerto`, cómo se lee/escribe una key, formato de la key, TTL, autenticación.
 
-**A deportBack (Cache + Gateway):**
-- URL base del servicio de Cache.
-- Cómo se consulta una key (`GET /cache/:key`? formato de la key?).
-- Cómo se escribe (`POST /cache` con `{key, value, ttl}`?).
+**Inventario-U (Storage):** URL o endpoint, cómo se sube un JSON (ruta, campos), credenciales si las hay.
 
-**A Inventario-U (Storage + Analítica):**
-- URL base del servicio de Storage.
-- Cómo se sube un JSON (`POST /storage`? qué campos espera?).
+**Ambos:** si aceptan `X-Api-Key` y `X-Trace-Id`, y si su firewall deja entrar desde nuestra nube (la IP de salida de AKS cambia al recrear el clúster).
 
-## Archivos a crear cuando se implemente
+## Pasos
 
-- `orchestrator/src/server.js` — `POST /orquestar`, `GET /orquestar/:id`.
-- `orchestrator/src/worker.js` — consumidor de la cola, dispatcher genérico + cache + storage.
-- `orchestrator/src/tareas.js` — persistencia del estado (tabla `orquestador_tarea` en nuestra BD Azure).
-- `orchestrator/src/cache-cliente.js` — llamadas al Cache de deportBack (con timeout/degradación elegante, mismo patrón que `http-externo.js`).
-- `orchestrator/src/storage-cliente.js` — llamadas al Storage de Inventario-U (mismo patrón).
-- `orchestrator/Dockerfile`
-- `infra/main.bicep` — agregar namespace de Azure Service Bus (tier Basic) + la cola.
-- `k8s/orchestrator-deployment.yaml`, `k8s/orchestrator-service.yaml`, `k8s/worker-deployment.yaml` — mismo clúster AKS existente, namespace nuevo `orchestrator` (separado del namespace `api-fastify`, pero sin duplicar el clúster ni el Load Balancer).
+| # | Paso | Estado |
+|---|---|---|
+| 1 | Servidor HTTP del orquestador (`POST /orquestar`, `GET /orquestar/:id`) | ✅ |
+| 2 | Cola real (Azure Service Bus), probada con el emulador local | ✅ |
+| 3 | Worker + dispatcher genérico, reintentos y dead-letter | ✅ |
+| 4 | Estado de tareas compartido en Postgres (`orquestador_tarea`) | ✅ |
+| 5 | Cache + Storage en el flujo del orquestador | ⏳ bloqueado por los contratos |
+| 6 | Dockerfile + manifiestos K8s del orquestador y el worker (namespace `orchestrator`, mismo clúster; `ClusterIP`) | pendiente, no bloqueado |
+| 7 | Gateway (microservicio nuevo, `LoadBalancer`) | pendiente, no bloqueado |
 
-## Verificación (cuando se implemente)
+## Archivos a crear
 
-- `POST /orquestar` con `servicio: "api_fastify"`, `metodo: "POST"`, `ruta: "/fabricaciones"` → confirmar que la fabricación se crea de verdad.
-- Repetir un `GET` dos veces seguidas → confirmar que la segunda viene del Cache (más rápida, o con algún indicador de "cache hit").
-- Revisar que cada tarea procesada generó su JSON en el Storage de Inventario-U.
-- Forzar un fallo (ej. `receta_id` inexistente) → confirmar que cae a la dead-letter queue tras los reintentos.
+- `orchestrator/src/cache-cliente.js`, `orchestrator/src/storage-cliente.js` — mismo patrón que `http-externo.js` (timeout corto, degradación elegante si el servicio no está configurado).
+- `gateway/` — proyecto Node independiente (`package.json`, `src/app.js`, `src/server.js`, `test/`, `Dockerfile`).
+- `orchestrator/Dockerfile`.
+- `k8s/orchestrator-deployment.yaml`, `k8s/orchestrator-service.yaml` (`ClusterIP`), `k8s/worker-deployment.yaml`, `k8s/gateway-deployment.yaml`, `k8s/gateway-service.yaml` (`LoadBalancer`).
+- `infra/main.bicep` — agregar el namespace y la cola de Azure Service Bus (tier Basic) y la base de datos de la tabla `orquestador_tarea`.
+
+## Verificación
+
+- Un `GET` repetido dos veces por el gateway: la segunda respuesta viene con `origen: "cache"`.
+- Tras un `PATCH`/`DELETE` por el gateway, el `GET` siguiente ya no devuelve el dato viejo.
+- Cada tarea procesada deja su JSON en el Storage de Inventario-U.
+- Un fallo forzado (`receta_id` inexistente) cae a la dead-letter queue tras los reintentos.
+- Llamar al orquestador directo desde fuera del clúster no es posible (`ClusterIP`); solo el gateway lo alcanza.
