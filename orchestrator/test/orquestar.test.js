@@ -77,6 +77,55 @@ describe('POST /orquestar', () => {
   })
 })
 
+describe('trace id', () => {
+  it('respeta el X-Trace-Id que llega, lo devuelve en el header y lo guarda con la tarea', async () => {
+    const app = buildApp()
+
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/orquestar',
+      headers: { 'x-trace-id': 'trace-del-gateway' },
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }
+    })
+
+    expect(respuesta.headers['x-trace-id']).toBe('trace-del-gateway')
+    expect(respuesta.json().traceId).toBe('trace-del-gateway')
+    await app.close()
+  })
+
+  it('genera un X-Trace-Id si no llega ninguno', async () => {
+    const app = buildApp()
+
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/orquestar',
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }
+    })
+
+    expect(respuesta.headers['x-trace-id']).toBeTruthy()
+    expect(respuesta.json().traceId).toBe(respuesta.headers['x-trace-id'])
+    await app.close()
+  })
+
+  it('GET /orquestar/:id devuelve el mismo trace-id con el que se creó la tarea', async () => {
+    const app = buildApp()
+
+    const creacion = await app.inject({
+      method: 'POST',
+      url: '/orquestar',
+      headers: { 'x-trace-id': 'trace-original' },
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }
+    })
+    const id = creacion.json().id
+
+    const respuesta = await app.inject({ method: 'GET', url: `/orquestar/${id}` })
+
+    expect(respuesta.json().traceId).toBe('trace-original')
+    expect(respuesta.headers['x-trace-id']).toBe('trace-original')
+    await app.close()
+  })
+})
+
 describe('control de acceso', () => {
   it('responde 401 en POST /orquestar si TEAM_API_KEY está configurada y la key falta o es incorrecta', async () => {
     process.env.TEAM_API_KEY = 'clave-del-equipo'
