@@ -42,8 +42,9 @@ npm run db:init
 ```
 
 **Paso 3 — Desplegar la aplicación en el clúster nuevo:**
-* La API: sigue el orden de `k8s/README.md` (namespace, configmap con las URLs de deportBack/Inventario-U, secret con `DATABASE_URL`+`TEAM_API_KEY`, deployment, service).
-* Gateway, orquestador y worker: sigue `k8s/orchestrator/README.md` (incluye cómo sacar la connection string de Service Bus).
+* La API: sigue `k8s/api-fastify/README.md` (namespace, configmap con las URLs de deportBack/Inventario-U, secret con `DATABASE_URL`+`TEAM_API_KEY`, deployment, service).
+* Orquestador y worker: sigue `k8s/orchestrator/README.md` (incluye cómo sacar la connection string de Service Bus).
+* Gateway: sigue `k8s/gateway/README.md` (depende del mismo namespace y configmap del orquestador).
 
 **Paso 4 — Actualizar lo que cambió:**
 * La IP pública del nuevo `Service` de la API es distinta — actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/api-fastify-aks.local.postman_environment.json`.

@@ -1,12 +1,11 @@
-# Manifiestos de Kubernetes — Gateway + Orchestrator + Worker
+# Manifiestos de Kubernetes — Orchestrator + Worker
 
-Namespace `orchestrator`, en el mismo clúster AKS que la API (`kubernet-devops`). Lo que corre aquí:
+Namespace `orchestrator`, en el mismo clúster AKS que la API (`kubernet-devops`). El `gateway` que comparte namespace y ConfigMap vive en su propia carpeta, [`k8s/gateway/`](../gateway/README.md).
 
 | Deployment | Réplicas | Qué es | Service |
 |---|---|---|---|
-| `gateway` | 2 | Único punto de entrada público. Valida `X-Api-Key` y reenvía todo al orquestador | `LoadBalancer` (IP pública) |
 | `orchestrator` | 2 | API que guarda la tarea y la encola | `ClusterIP` (solo interno) |
-| `worker` | 2 | Consumidor de la cola; despacha a las 3 APIs | ninguno |
+| `worker` | 2 | Consumidor de la cola; despacha a las 3 APIs y a la Cache de deportBack | ninguno |
 
 `orchestrator` y `worker` usan la misma imagen (`orchestrator-produccion`); el worker solo cambia el `command`.
 
@@ -25,11 +24,11 @@ Namespace `orchestrator`, en el mismo clúster AKS que la API (`kubernet-devops`
 kubectl apply -f k8s/orchestrator/namespace.yaml
 kubectl apply -f k8s/orchestrator/configmap.yaml
 # ghcr-pull-secret y orchestrator-secrets se crean aparte (ver abajo)
-kubectl apply -f k8s/orchestrator/orchestrator-deployment.yaml
-kubectl apply -f k8s/orchestrator/orchestrator-service.yaml
+kubectl apply -f k8s/orchestrator/deployment.yaml
+kubectl apply -f k8s/orchestrator/service.yaml
 kubectl apply -f k8s/orchestrator/worker-deployment.yaml
-kubectl apply -f k8s/orchestrator/gateway-deployment.yaml
-kubectl apply -f k8s/orchestrator/gateway-service.yaml
+kubectl apply -f k8s/gateway/deployment.yaml
+kubectl apply -f k8s/gateway/service.yaml
 ```
 
 ## Secrets (los reales nunca se versionan)

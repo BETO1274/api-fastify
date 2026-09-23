@@ -89,7 +89,7 @@ Pendiente (paso 5): `orchestrator/src/cache-cliente.js` y `orchestrator/src/stor
 Ya creados (pasos 6 y 7):
 - `gateway/` — proyecto Node independiente, con su `Dockerfile`, pruebas y README.
 - `orchestrator/Dockerfile` — una imagen para el servidor y el worker.
-- `k8s/orchestrator/` — namespace, configmap, secret de ejemplo, deployments de `orchestrator`, `worker` y `gateway`, y los services (`ClusterIP` para el orquestador, `LoadBalancer` para el gateway).
+- `k8s/orchestrator/` — namespace, configmap, secret de ejemplo, deployments de `orchestrator` y `worker`, y su service (`ClusterIP`). El gateway vive en `k8s/gateway/` (deployment + service `LoadBalancer`), mismo namespace y configmap.
 - `infra/main.bicep` — namespace y cola de Azure Service Bus (tier Basic). La tabla `orquestador_tarea` va en la misma base de Azure, con `npm run db:init`.
 - Los dos pipelines existentes ahora también prueban, construyen, hacen smoke test y publican las imágenes del orquestador y del gateway (se mantienen los 2 pipelines).
 

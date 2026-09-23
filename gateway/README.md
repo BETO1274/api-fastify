@@ -48,4 +48,4 @@ npm test
 
 `502` si no responde, `504` si tarda más de 10 s, `500` si `ORQUESTADOR_URL` no está configurada.
 
-Manifiestos de Kubernetes: `../k8s/orchestrator/`.
+Manifiestos de Kubernetes: `../k8s/gateway/`.
