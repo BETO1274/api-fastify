@@ -8,6 +8,7 @@ const { ServiceBusClient } = await import('@azure/service-bus')
 const { despachar } = await import('./dispatcher.js')
 const { actualizarTarea } = await import('./tareas.js')
 const { claveDeCache, obtenerDeCache, guardarEnCache } = await import('./cache-cliente.js')
+const { guardarEnStorage } = await import('./storage-cliente.js')
 
 const QUEUE_NAME = process.env.SERVICEBUS_QUEUE_NAME || 'tareas-orquestador'
 const MAX_DELIVERY_COUNT = Number(process.env.SERVICEBUS_MAX_DELIVERY_COUNT || 3)
@@ -52,6 +53,7 @@ receiver.subscribe({
       if (enCache !== undefined) {
         console.log(`Tarea ${tarea.id} resuelta desde cache (${claveCache})`)
         await registrarEstado(tarea.id, { estado: 'completado', resultado: enCache })
+        await guardarEnStorage(traceId, enCache)
         await receiver.completeMessage(mensaje)
         return
       }
@@ -92,6 +94,9 @@ receiver.subscribe({
     console.log(`Tarea ${tarea.id} completada — status ${resultado.status}`)
     await registrarEstado(tarea.id, { estado: 'completado', resultado })
     if (claveCache) await guardarEnCache(claveCache, resultado, traceId)
+    // Storage guarda siempre, sin importar el método — es el registro
+    // histórico del flujo completo (a diferencia de la Cache, que es solo GET).
+    await guardarEnStorage(traceId, resultado)
     await receiver.completeMessage(mensaje)
   },
   processError: async (args) => {
