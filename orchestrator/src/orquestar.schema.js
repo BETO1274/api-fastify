@@ -17,7 +17,8 @@ export const TareaResponse = Type.Object({
   ruta: Type.String(),
   estado: Type.String(),
   resultado: Type.Any(),
-  creadaEn: Type.String()
+  creadaEn: Type.String(),
+  traceId: Type.Optional(Type.String())
 })
 
 export const OrquestarParams = Type.Object({
