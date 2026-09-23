@@ -3,3 +3,4 @@
 // DATABASE_URL que definen los pipelines de CI para la API principal).
 delete process.env.DATABASE_URL
 delete process.env.SERVICEBUS_CONNECTION_STRING
+delete process.env.TEAM_API_KEY

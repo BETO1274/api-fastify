@@ -26,13 +26,18 @@ async function llamarOrquestador(ruta, { metodo, body, traceId }) {
   const temporizador = setTimeout(() => controlador.abort(), TIMEOUT_MS)
 
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Trace-Id': traceId
+    }
+    // El orquestador exige la misma key del equipo en lo que recibe (segunda
+    // capa de defensa, además de que el Service quede como ClusterIP).
+    if (process.env.TEAM_API_KEY) headers['X-Api-Key'] = process.env.TEAM_API_KEY
+
     const respuesta = await fetch(`${urlBase}${ruta}`, {
       method: metodo,
       signal: controlador.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Trace-Id': traceId
-      },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body)
     })
     return {

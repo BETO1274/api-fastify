@@ -4,6 +4,7 @@ import { limpiarTareas } from '../src/tareas-memoria.js'
 
 afterEach(() => {
   limpiarTareas()
+  delete process.env.TEAM_API_KEY
 })
 
 describe('health check', () => {
@@ -72,6 +73,65 @@ describe('POST /orquestar', () => {
     })
 
     expect(respuesta.statusCode).toBe(400)
+    await app.close()
+  })
+})
+
+describe('control de acceso', () => {
+  it('responde 401 en POST /orquestar si TEAM_API_KEY está configurada y la key falta o es incorrecta', async () => {
+    process.env.TEAM_API_KEY = 'clave-del-equipo'
+    const app = buildApp()
+
+    const sinKey = await app.inject({
+      method: 'POST',
+      url: '/orquestar',
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }
+    })
+    expect(sinKey.statusCode).toBe(401)
+
+    const keyIncorrecta = await app.inject({
+      method: 'POST',
+      url: '/orquestar',
+      headers: { 'x-api-key': 'otra-clave!!!!!!' },
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }
+    })
+    expect(keyIncorrecta.statusCode).toBe(401)
+
+    await app.close()
+  })
+
+  it('deja pasar POST /orquestar con la key correcta', async () => {
+    process.env.TEAM_API_KEY = 'clave-del-equipo'
+    const app = buildApp()
+
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/orquestar',
+      headers: { 'x-api-key': 'clave-del-equipo' },
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }
+    })
+
+    expect(respuesta.statusCode).toBe(202)
+    await app.close()
+  })
+
+  it('responde 401 en GET /orquestar/:id sin la key correcta', async () => {
+    process.env.TEAM_API_KEY = 'clave-del-equipo'
+    const app = buildApp()
+
+    const respuesta = await app.inject({ method: 'GET', url: '/orquestar/cualquier-id' })
+
+    expect(respuesta.statusCode).toBe(401)
+    await app.close()
+  })
+
+  it('GET /health no exige key', async () => {
+    process.env.TEAM_API_KEY = 'clave-del-equipo'
+    const app = buildApp()
+
+    const respuesta = await app.inject({ method: 'GET', url: '/health' })
+
+    expect(respuesta.statusCode).toBe(200)
     await app.close()
   })
 })
