@@ -1,7 +1,7 @@
 # Dockerfile desplegado — Producción
 
-- Commit: `63d046693e22e952eae93c3d08eb079b9ec9bf92`
-- Fecha (UTC): 2026-09-19 18:48:23
+- Commit: `f20a4f3fb7c05ef1ae6b2efca96392ebee6cffb2`
+- Fecha (UTC): 2026-09-23 15:19:02
 
 ```dockerfile
 FROM node:22-alpine
