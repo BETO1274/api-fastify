@@ -19,9 +19,12 @@ function headersComunes(traceId) {
 }
 
 // La key de cache identifica de forma única una petición de solo lectura:
-// mismo servicio + método + ruta -> mismo dato.
+// mismo servicio + método + ruta -> mismo dato. El "/" de la ruta se
+// reemplaza porque el Controller de deportBack usa un único @Param(':key')
+// — una "/" en el valor rompe su ruteo (la interpreta como otro segmento),
+// incluso codificada como %2F.
 export function claveDeCache({ servicio, metodo, ruta }) {
-  return `${servicio}:${metodo}:${ruta}`
+  return `${servicio}:${metodo}:${ruta}`.replaceAll('/', '~')
 }
 
 export async function obtenerDeCache(key, traceId) {

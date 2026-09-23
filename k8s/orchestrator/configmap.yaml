@@ -12,10 +12,12 @@ data:
   # sin salir a internet ni pasar por Cloudflare — así QUERY funciona.
   API_FASTIFY_URL: "http://api-fastify.api-fastify.svc.cluster.local"
   # APIs de los compañeros (URLs públicas de sus nubes).
-  DEPORTBACK_URL: "http://35.224.94.116"
+  # deportBack cambió de IP el 2026-09-23 (confirmado por ellos, con swagger
+  # en /api-docs). Si vuelve a cambiar, actualizar aquí y en INVENTARIO_U_URL.
+  DEPORTBACK_URL: "http://34.133.194.129"
   INVENTARIO_U_URL: "http://158.247.121.202"
   # Cache distribuida de deportBack (contrato: GET/POST /cache, confirmado
   # contra su repo). Misma IP que DEPORTBACK_URL porque es el mismo servicio.
-  CACHE_URL: "http://35.224.94.116"
+  CACHE_URL: "http://34.133.194.129"
   # El gateway llama al orquestador por el Service interno del mismo namespace.
   ORQUESTADOR_URL: "http://orchestrator"

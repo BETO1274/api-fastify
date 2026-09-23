@@ -53,7 +53,12 @@ afterEach(() => {
 describe('claveDeCache', () => {
   it('arma la key a partir de servicio, metodo y ruta', () => {
     expect(claveDeCache({ servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos' }))
-      .toBe('api_fastify:GET:/articulos')
+      .toBe('api_fastify:GET:~articulos')
+  })
+
+  it('reemplaza toda "/" — el Controller de destino no soporta "/" en :key', () => {
+    expect(claveDeCache({ servicio: 'inventario_u', metodo: 'GET', ruta: '/inventario/query' }))
+      .toBe('inventario_u:GET:~inventario~query')
   })
 })
 
