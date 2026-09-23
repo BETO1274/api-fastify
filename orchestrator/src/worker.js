@@ -7,6 +7,7 @@ if (existsSync('.env')) {
 const { ServiceBusClient } = await import('@azure/service-bus')
 const { despachar } = await import('./dispatcher.js')
 const { actualizarTarea } = await import('./tareas.js')
+const { claveDeCache, obtenerDeCache, guardarEnCache } = await import('./cache-cliente.js')
 
 const QUEUE_NAME = process.env.SERVICEBUS_QUEUE_NAME || 'tareas-orquestador'
 const MAX_DELIVERY_COUNT = Number(process.env.SERVICEBUS_MAX_DELIVERY_COUNT || 3)
@@ -37,6 +38,25 @@ receiver.subscribe({
     const tarea = mensaje.body
     console.log(`Procesando tarea ${tarea.id}: ${tarea.metodo} ${tarea.servicio}${tarea.ruta}`)
 
+    // El trace-id vino del gateway (o del cliente) — nunca se reemplaza,
+    // para poder seguir la tarea en los logs de las 3 nubes.
+    const traceId = tarea.traceId ?? tarea.id
+
+    // Solo se cachea lectura (GET): cachear POST/PATCH/DELETE serviría datos
+    // viejos después de una escritura real.
+    const esLectura = tarea.metodo === 'GET'
+    const claveCache = esLectura ? claveDeCache(tarea) : null
+
+    if (claveCache) {
+      const enCache = await obtenerDeCache(claveCache, traceId)
+      if (enCache !== undefined) {
+        console.log(`Tarea ${tarea.id} resuelta desde cache (${claveCache})`)
+        await registrarEstado(tarea.id, { estado: 'completado', resultado: enCache })
+        await receiver.completeMessage(mensaje)
+        return
+      }
+    }
+
     let resultado
     try {
       resultado = await despachar({
@@ -44,10 +64,7 @@ receiver.subscribe({
         metodo: tarea.metodo,
         ruta: tarea.ruta,
         body: tarea.body,
-        // El id de la tarea es interno del orquestador — el trace-id es el
-        // que vino del gateway (o del cliente), y es el que hay que reenviar
-        // para que se pueda seguir la tarea en los logs de las 3 nubes.
-        traceId: tarea.traceId ?? tarea.id
+        traceId
       })
     } catch (error) {
       const intentoActual = mensaje.deliveryCount + 1
@@ -74,6 +91,7 @@ receiver.subscribe({
     // se completa igual para no repetir el efecto (por ejemplo, un POST doble).
     console.log(`Tarea ${tarea.id} completada — status ${resultado.status}`)
     await registrarEstado(tarea.id, { estado: 'completado', resultado })
+    if (claveCache) await guardarEnCache(claveCache, resultado, traceId)
     await receiver.completeMessage(mensaje)
   },
   processError: async (args) => {
