@@ -44,7 +44,10 @@ receiver.subscribe({
         metodo: tarea.metodo,
         ruta: tarea.ruta,
         body: tarea.body,
-        traceId: tarea.id
+        // El id de la tarea es interno del orquestador — el trace-id es el
+        // que vino del gateway (o del cliente), y es el que hay que reenviar
+        // para que se pueda seguir la tarea en los logs de las 3 nubes.
+        traceId: tarea.traceId ?? tarea.id
       })
     } catch (error) {
       const intentoActual = mensaje.deliveryCount + 1

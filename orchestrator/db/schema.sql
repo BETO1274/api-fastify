@@ -13,4 +13,9 @@ create table if not exists orquestador_tarea (
   actualizada_en timestamptz not null default now()
 );
 
+-- El X-Trace-Id que llega del gateway (o el del cliente, si lo mandó). Se
+-- guarda para que el worker lo reenvíe tal cual a las 3 APIs, a la Cache y al
+-- Storage — nunca debe generarse uno nuevo después del borde (el gateway).
+alter table orquestador_tarea add column if not exists trace_id text;
+
 create index if not exists orquestador_tarea_estado_idx on orquestador_tarea (estado);

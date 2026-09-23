@@ -12,9 +12,16 @@ export default async function orquestarRoutes(fastify) {
   fastify.post('/orquestar', {
     schema: { body: OrquestarBody, response: { 202: TareaResponse } }
   }, async (request, reply) => {
+    // El gateway siempre manda X-Trace-Id (lo genera si el cliente no lo
+    // trajo). Si algo llamara al orquestador sin pasar por el gateway, se
+    // genera aquí como último recurso — pero nunca se reemplaza uno que ya
+    // venía, porque rompería la correlación end-to-end entre las 3 nubes.
+    const traceId = request.headers['x-trace-id'] ?? crypto.randomUUID()
+    reply.header('x-trace-id', traceId)
+
     // Se persiste primero (para que GET /orquestar/:id funcione ya mismo),
     // y luego se manda a la cola real para que el worker la procese.
-    const tarea = await crearTarea(request.body)
+    const tarea = await crearTarea({ ...request.body, traceId })
 
     if (process.env.SERVICEBUS_CONNECTION_STRING) {
       try {
@@ -42,6 +49,9 @@ export default async function orquestarRoutes(fastify) {
     if (!tarea) {
       return reply.code(404).send({ mensaje: 'Tarea no encontrada' })
     }
+    // El trace-id de la consulta es el de la tarea que ya se creó — así el
+    // que pregunta "¿cómo va esto?" puede seguir buscando ese mismo id.
+    if (tarea.traceId) reply.header('x-trace-id', tarea.traceId)
     return tarea
   })
 }

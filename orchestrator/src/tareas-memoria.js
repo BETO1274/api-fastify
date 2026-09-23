@@ -4,7 +4,7 @@
 
 const tareas = new Map()
 
-export function crearTarea({ servicio, metodo, ruta, body }) {
+export function crearTarea({ servicio, metodo, ruta, body, traceId }) {
   const id = crypto.randomUUID()
   tareas.set(id, {
     id,
@@ -14,7 +14,8 @@ export function crearTarea({ servicio, metodo, ruta, body }) {
     body,
     estado: 'pendiente',
     resultado: null,
-    creadaEn: new Date().toISOString()
+    creadaEn: new Date().toISOString(),
+    traceId
   })
   return tareas.get(id)
 }
