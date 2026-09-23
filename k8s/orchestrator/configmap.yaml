@@ -14,5 +14,8 @@ data:
   # APIs de los compañeros (URLs públicas de sus nubes).
   DEPORTBACK_URL: "http://35.224.94.116"
   INVENTARIO_U_URL: "http://158.247.121.202"
+  # Cache distribuida de deportBack (contrato: GET/POST /cache, confirmado
+  # contra su repo). Misma IP que DEPORTBACK_URL porque es el mismo servicio.
+  CACHE_URL: "http://35.224.94.116"
   # El gateway llama al orquestador por el Service interno del mismo namespace.
   ORQUESTADOR_URL: "http://orchestrator"
