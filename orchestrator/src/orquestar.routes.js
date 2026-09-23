@@ -1,8 +1,14 @@
 import { OrquestarBody, OrquestarParams, TareaResponse } from './orquestar.schema.js'
 import { crearTarea, obtenerTarea, actualizarTarea } from './tareas.js'
 import { encolarTarea } from './cola.js'
+import { exigirApiKey } from './auth.js'
 
 export default async function orquestarRoutes(fastify) {
+  // Segunda capa de defensa: en producción, solo el gateway debe poder
+  // llegar aquí (el Service queda como ClusterIP). Esto protege /orquestar
+  // igual aunque esa configuración de red fallara.
+  fastify.addHook('preHandler', exigirApiKey)
+
   fastify.post('/orquestar', {
     schema: { body: OrquestarBody, response: { 202: TareaResponse } }
   }, async (request, reply) => {
