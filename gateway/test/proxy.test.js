@@ -17,6 +17,7 @@ beforeAll(async () => {
         metodo: req.method,
         url: req.url,
         traceId: req.headers['x-trace-id'],
+        apiKeyRecibida: req.headers['x-api-key'],
         body: texto ? JSON.parse(texto) : undefined
       })
       res.statusCode = respuestaSimulada.status
@@ -189,6 +190,19 @@ describe('control de acceso', () => {
 
       expect(respuesta.statusCode).toBe(202)
       expect(recibidas).toHaveLength(1)
+    })
+  })
+
+  it('reenvía la key al orquestador (segunda capa de defensa de su lado)', async () => {
+    process.env.TEAM_API_KEY = 'clave-del-equipo'
+    await conApp(async (app) => {
+      await app.inject({
+        method: 'GET',
+        url: '/api_fastify/articulos',
+        headers: { 'x-api-key': 'clave-del-equipo' }
+      })
+
+      expect(recibidas[0].apiKeyRecibida).toBe('clave-del-equipo')
     })
   })
 })
