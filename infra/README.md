@@ -7,7 +7,10 @@ No incluye una IP pública fija — al recrear el clúster, el `Service` de Kube
 ## Requisitos
 
 * Azure CLI (`az`) instalado y autenticado (`az login`).
-* El Resource Group `DEVOPS` debe existir (no lo crea este Bicep, es intencional — así no se borra por accidente si algún día se destruyen los recursos de adentro).
+* El Resource Group `DEVOPS` debe existir (no lo crea este Bicep, es intencional — así no se borra por accidente si algún día se destruyen los recursos de adentro). Si ya no existe (por ejemplo, se borró el grupo completo al bajar todo, no solo los recursos de adentro), créalo primero:
+  ```powershell
+  az group create --name DEVOPS --location westus
+  ```
 
 ## Desplegar TODO desde cero (infraestructura + datos + app)
 
