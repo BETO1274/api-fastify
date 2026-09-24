@@ -19,12 +19,16 @@ export async function despachar({ servicio, metodo, ruta, body, traceId }) {
     throw new Error(`no hay URL configurada para el servicio "${servicio}"`)
   }
 
-  const headers = { 'Content-Type': 'application/json' }
+  const headers = {}
   if (traceId) headers['X-Trace-Id'] = traceId
   if (process.env.TEAM_API_KEY) headers['X-Api-Key'] = process.env.TEAM_API_KEY
 
   const opciones = { method: metodo, headers }
+  // Content-Type solo cuando de verdad hay body: mandarlo en una petición
+  // vacía (GET/DELETE típicamente) hace que Fastify del otro lado la
+  // rechace con 400 "el body no puede estar vacío si dice ser JSON".
   if (body !== undefined && metodo !== 'GET' && metodo !== 'DELETE') {
+    headers['Content-Type'] = 'application/json'
     opciones.body = JSON.stringify(body)
   }
 
