@@ -6,5 +6,5 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "3000"
-  DEPORTBACK_URL: "http://35.224.94.116"
+  DEPORTBACK_URL: "http://34.133.194.129"
   INVENTARIO_U_URL: "http://158.247.121.202"
