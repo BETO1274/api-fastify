@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Gateway Multicloud — Orchestrator",
-    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud) — todas las peticiones van a la IP del gateway, nunca directo a las 3 APIs. Cubre todos los endpoints de lectura (GET/QUERY) conocidos de las 3 APIs, confirmados leyendo sus repos reales, más el CRUD completo (los 6 verbos) contra nuestra propia api_fastify.\n\nCada par está numerado dentro de su carpeta (1.1/1.2, 2.1/2.2, ...): el '.1' crea la tarea contra el gateway (responde 202 de inmediato con el id), el '.2' consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó. Correr en orden, de arriba hacia abajo, con el Collection Runner y un Delay de al menos 2000ms (Runner → ⚙️ → Delay) — la carpeta 04 además encadena el id creado a través de sus propios pasos (crear → leer → actualizar → borrar → confirmar 404).\n\nA propósito NO incluye POST/PATCH/PUT/DELETE contra deportBack ni Inventario-U — escribir o borrar datos reales de sus demos sin coordinarlo con ellos es riesgoso. Para nuestra propia api_fastify sí se prueban los 6 verbos (no hay PUT porque nuestra API no lo implementa, usa PATCH), sobre un dato desechable que la misma colección crea y borra.\n\nNotas de contrato descubiertas probando en vivo:\n- 'Registros' no tiene una ruta /buscar propia — el equivalente de búsqueda es GET /registros con filtros por query.\n- 'Logros' exige habitoId o deportistaId como query param (regla de su servicio, no está en el DTO). Puede fallar intermitentemente al correr toda la colección seguida (funciona 3/3 veces suelto) — es su servicio bajo carga sostenida, no algo de nuestro lado.\n- 'GET api/v2/integracion' de Inventario-U puede fallar con 502 si deportBack no responde a tiempo — ellos llaman directo a deportBack para armar esa integración, sin pasar por nuestro gateway. No es un bug nuestro.",
+    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud) — todas las peticiones van a la IP del gateway, nunca directo a las 3 APIs. v1 y v2 de nuestra propia api_fastify están en carpetas separadas (01 y 02) para no mezclar el CRUD directo con el envelope combinado.\n\nCada par está numerado dentro de su carpeta (1.1/1.2, 2.1/2.2, ...): el '.1' crea la tarea contra el gateway (responde 202 de inmediato con el id), el '.2' consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó. Correr en orden, de arriba hacia abajo, con el Collection Runner y un Delay de al menos 2000ms (Runner → ⚙️ → Delay) — la carpeta 05 además encadena el id creado a través de sus propios pasos (crear → leer → actualizar → borrar → confirmar 404).\n\nA propósito NO incluye POST/PATCH/PUT/DELETE contra deportBack ni Inventario-U — escribir o borrar datos reales de sus demos sin coordinarlo con ellos es riesgoso. Para nuestra propia api_fastify sí se prueban los 6 verbos (no hay PUT porque nuestra API no lo implementa, usa PATCH), sobre un dato desechable que la misma colección crea y borra.\n\nNotas de contrato descubiertas probando en vivo:\n- 'Registros' no tiene una ruta /buscar propia — el equivalente de búsqueda es GET /registros con filtros por query.\n- 'Logros' exige habitoId o deportistaId como query param (regla de su servicio, no está en el DTO). Puede fallar intermitentemente al correr toda la colección seguida (funciona 3/3 veces suelto) — es su servicio bajo carga sostenida, no algo de nuestro lado.\n- 'GET api/v2/integracion' de Inventario-U puede fallar con 502 si deportBack no responde a tiempo — ellos llaman directo a deportBack para armar esa integración, sin pasar por nuestro gateway. No es un bug nuestro.\n- La Cache de deportBack (@IsDefined() en su DTO) rechaza value: null — nuestro worker invalida entradas escribiendo un valor real con TTL de 1s en vez de null.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,7 +13,7 @@
     {
       "key": "articulo_creado_id",
       "value": "",
-      "description": "Id del articulo creado en la carpeta 04, para encadenar GET/PATCH/DELETE sobre el mismo dato."
+      "description": "Id del articulo creado en la carpeta 05, para encadenar GET/PATCH/DELETE sobre el mismo dato."
     }
   ],
   "item": [
@@ -78,10 +78,10 @@
       ]
     },
     {
-      "name": "01 - api_fastify (v1 lectura + v2)",
+      "name": "01 - api_fastify v1 (CRUD directo — nuestras 4 entidades)",
       "item": [
         {
-          "name": "1.1 - Crear tarea: GET articulos (v1)",
+          "name": "1.1 - Crear tarea: GET articulos",
           "request": {
             "method": "GET",
             "header": [
@@ -116,7 +116,7 @@
           ]
         },
         {
-          "name": "1.2 - Resultado: GET articulos (v1)",
+          "name": "1.2 - Resultado: GET articulos",
           "request": {
             "method": "GET",
             "header": [
@@ -156,7 +156,7 @@
           ]
         },
         {
-          "name": "2.1 - Crear tarea: GET articulos/1 (v1)",
+          "name": "2.1 - Crear tarea: GET articulos/1",
           "request": {
             "method": "GET",
             "header": [
@@ -192,7 +192,7 @@
           ]
         },
         {
-          "name": "2.2 - Resultado: GET articulos/1 (v1)",
+          "name": "2.2 - Resultado: GET articulos/1",
           "request": {
             "method": "GET",
             "header": [
@@ -231,7 +231,7 @@
           ]
         },
         {
-          "name": "3.1 - Crear tarea: QUERY articulos/search (v1)",
+          "name": "3.1 - Crear tarea: QUERY articulos/search",
           "request": {
             "method": "QUERY",
             "header": [
@@ -275,7 +275,7 @@
           ]
         },
         {
-          "name": "3.2 - Resultado: QUERY articulos/search (v1)",
+          "name": "3.2 - Resultado: QUERY articulos/search",
           "request": {
             "method": "GET",
             "header": [
@@ -314,7 +314,7 @@
           ]
         },
         {
-          "name": "4.1 - Crear tarea: GET stock (v1)",
+          "name": "4.1 - Crear tarea: GET stock",
           "request": {
             "method": "GET",
             "header": [
@@ -349,7 +349,7 @@
           ]
         },
         {
-          "name": "4.2 - Resultado: GET stock (v1)",
+          "name": "4.2 - Resultado: GET stock",
           "request": {
             "method": "GET",
             "header": [
@@ -388,7 +388,7 @@
           ]
         },
         {
-          "name": "5.1 - Crear tarea: QUERY stock/search (v1)",
+          "name": "5.1 - Crear tarea: QUERY stock/search",
           "request": {
             "method": "QUERY",
             "header": [
@@ -432,7 +432,7 @@
           ]
         },
         {
-          "name": "5.2 - Resultado: QUERY stock/search (v1)",
+          "name": "5.2 - Resultado: QUERY stock/search",
           "request": {
             "method": "GET",
             "header": [
@@ -471,7 +471,7 @@
           ]
         },
         {
-          "name": "6.1 - Crear tarea: GET recetas (v1)",
+          "name": "6.1 - Crear tarea: GET recetas",
           "request": {
             "method": "GET",
             "header": [
@@ -506,7 +506,7 @@
           ]
         },
         {
-          "name": "6.2 - Resultado: GET recetas (v1)",
+          "name": "6.2 - Resultado: GET recetas",
           "request": {
             "method": "GET",
             "header": [
@@ -545,7 +545,7 @@
           ]
         },
         {
-          "name": "7.1 - Crear tarea: QUERY recetas/search (v1)",
+          "name": "7.1 - Crear tarea: QUERY recetas/search",
           "request": {
             "method": "QUERY",
             "header": [
@@ -589,7 +589,7 @@
           ]
         },
         {
-          "name": "7.2 - Resultado: QUERY recetas/search (v1)",
+          "name": "7.2 - Resultado: QUERY recetas/search",
           "request": {
             "method": "GET",
             "header": [
@@ -628,7 +628,7 @@
           ]
         },
         {
-          "name": "8.1 - Crear tarea: GET fabricaciones (v1)",
+          "name": "8.1 - Crear tarea: GET fabricaciones",
           "request": {
             "method": "GET",
             "header": [
@@ -663,7 +663,7 @@
           ]
         },
         {
-          "name": "8.2 - Resultado: GET fabricaciones (v1)",
+          "name": "8.2 - Resultado: GET fabricaciones",
           "request": {
             "method": "GET",
             "header": [
@@ -702,7 +702,7 @@
           ]
         },
         {
-          "name": "9.1 - Crear tarea: QUERY fabricaciones/search (v1)",
+          "name": "9.1 - Crear tarea: QUERY fabricaciones/search",
           "request": {
             "method": "QUERY",
             "header": [
@@ -746,7 +746,7 @@
           ]
         },
         {
-          "name": "9.2 - Resultado: QUERY fabricaciones/search (v1)",
+          "name": "9.2 - Resultado: QUERY fabricaciones/search",
           "request": {
             "method": "GET",
             "header": [
@@ -783,9 +783,14 @@
               }
             }
           ]
-        },
+        }
+      ]
+    },
+    {
+      "name": "02 - api_fastify v2 (envelope combinado con las 3 nubes)",
+      "item": [
         {
-          "name": "10.1 - Crear tarea: GET api/v2/articulos/top (envelope combinado)",
+          "name": "1.1 - Crear tarea: GET api/v2/articulos/top",
           "request": {
             "method": "GET",
             "header": [
@@ -823,7 +828,7 @@
           ]
         },
         {
-          "name": "10.2 - Resultado: GET api/v2/articulos/top (envelope combinado)",
+          "name": "1.2 - Resultado: GET api/v2/articulos/top",
           "request": {
             "method": "GET",
             "header": [
@@ -866,7 +871,7 @@
           ]
         },
         {
-          "name": "11.1 - Crear tarea: GET api/v2/stock/top",
+          "name": "2.1 - Crear tarea: GET api/v2/stock/top",
           "request": {
             "method": "GET",
             "header": [
@@ -904,7 +909,7 @@
           ]
         },
         {
-          "name": "11.2 - Resultado: GET api/v2/stock/top",
+          "name": "2.2 - Resultado: GET api/v2/stock/top",
           "request": {
             "method": "GET",
             "header": [
@@ -943,7 +948,7 @@
           ]
         },
         {
-          "name": "12.1 - Crear tarea: GET api/v2/recetas/top",
+          "name": "3.1 - Crear tarea: GET api/v2/recetas/top",
           "request": {
             "method": "GET",
             "header": [
@@ -981,7 +986,7 @@
           ]
         },
         {
-          "name": "12.2 - Resultado: GET api/v2/recetas/top",
+          "name": "3.2 - Resultado: GET api/v2/recetas/top",
           "request": {
             "method": "GET",
             "header": [
@@ -1020,7 +1025,7 @@
           ]
         },
         {
-          "name": "13.1 - Crear tarea: GET api/v2/fabricaciones/top",
+          "name": "4.1 - Crear tarea: GET api/v2/fabricaciones/top",
           "request": {
             "method": "GET",
             "header": [
@@ -1058,7 +1063,7 @@
           ]
         },
         {
-          "name": "13.2 - Resultado: GET api/v2/fabricaciones/top",
+          "name": "4.2 - Resultado: GET api/v2/fabricaciones/top",
           "request": {
             "method": "GET",
             "header": [
@@ -1099,7 +1104,7 @@
       ]
     },
     {
-      "name": "02 - deportBack (Deportistas, Habitos, Logros, Registros, Cache)",
+      "name": "03 - deportBack (Deportistas, Habitos, Logros, Registros, Cache)",
       "item": [
         {
           "name": "1.1 - Crear tarea: GET deportistas (1a vez, cache miss)",
@@ -1868,7 +1873,7 @@
       ]
     },
     {
-      "name": "03 - Inventario-U (SKUs, Almacenes, Movimientos, query, v2)",
+      "name": "04 - Inventario-U (SKUs, Almacenes, Movimientos, query, v2)",
       "item": [
         {
           "name": "1.1 - Crear tarea: GET skus",
@@ -2404,7 +2409,7 @@
       ]
     },
     {
-      "name": "04 - api_fastify: los 6 verbos completos (crea y borra su propio dato)",
+      "name": "05 - api_fastify v1: los 6 verbos completos (crea y borra su propio dato)",
       "item": [
         {
           "name": "1.1 - Crear tarea: POST articulos (crear)",
@@ -2787,7 +2792,7 @@
                   "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
                   "var tarea = pm.response.json();",
                   "if (tarea.estado !== 'pendiente') {",
-                  "  pm.test('la tarea de despacho quedo fallida (404 de api_fastify, articulo ya no existe)', function () { pm.expect(tarea.estado).to.eql('fallido'); });",
+                  "  pm.test('la tarea de despacho quedo fallida (404 de api_fastify, articulo ya no existe — la cache ya no debe servir el dato viejo)', function () { pm.expect(tarea.estado).to.eql('fallido'); });",
                   "}"
                 ]
               }
