@@ -1,6 +1,7 @@
 // Dispatcher genérico: reenvía la tarea encolada a la API real
 // correspondiente. No hay casos fijos por verbo — cualquier combinación de
 // servicio/metodo/ruta/body que llegue se reenvía tal cual.
+import { dispatcherDuracionSegundos, dispatcherLlamadasTotal } from './metricas.js'
 
 const URL_POR_SERVICIO = {
   api_fastify: () => process.env.API_FASTIFY_URL,
@@ -32,11 +33,24 @@ export async function despachar({ servicio, metodo, ruta, body, traceId }) {
     opciones.body = JSON.stringify(body)
   }
 
-  const respuesta = await fetch(`${urlBase}${ruta}`, opciones)
+  const detenerCronometro = dispatcherDuracionSegundos.startTimer({ servicio })
+
+  let respuesta
+  try {
+    respuesta = await fetch(`${urlBase}${ruta}`, opciones)
+  } catch (error) {
+    detenerCronometro()
+    dispatcherLlamadasTotal.inc({ servicio, metodo, resultado: 'fallo' })
+    throw error
+  }
+  detenerCronometro()
+
   const contentType = respuesta.headers.get('content-type') || ''
   const datos = contentType.includes('application/json')
     ? await respuesta.json().catch(() => null)
     : await respuesta.text()
+
+  dispatcherLlamadasTotal.inc({ servicio, metodo, resultado: respuesta.ok ? 'exito' : 'fallo' })
 
   if (!respuesta.ok) {
     const error = new Error(`respuesta ${respuesta.status} de ${servicio}${ruta}`)

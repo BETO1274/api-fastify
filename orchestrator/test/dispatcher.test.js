@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { despachar } from '../src/dispatcher.js'
+import { registro } from '../src/metricas.js'
 
 // API de destino falsa: registra los headers que le llegan.
 let servidor
@@ -92,5 +93,16 @@ describe('despachar', () => {
     await despachar({ servicio: 'api_fastify', metodo: 'POST', ruta: '/articulos', body: { nombre: 'x' }, traceId: 'x' })
 
     expect(recibidas[0].contentType).toBe('application/json')
+  })
+
+  it('cuenta la llamada exitosa en dispatcher_llamadas_total, con el servicio como label', async () => {
+    process.env.API_FASTIFY_URL = `http://127.0.0.1:${servidor.address().port}`
+
+    await despachar({ servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos', traceId: 'x' })
+
+    const metricas = await registro.getMetricsAsJSON()
+    const contador = metricas.find((m) => m.name === 'dispatcher_llamadas_total')
+    const valor = contador.values.find((v) => v.labels.servicio === 'api_fastify' && v.labels.resultado === 'exito')
+    expect(valor.value).toBeGreaterThan(0)
   })
 })
