@@ -18,6 +18,11 @@ beforeAll(async () => {
 
       if (req.method === 'POST' && req.url === '/cache') {
         const { key, value, ttl } = JSON.parse(cuerpo)
+        // Replica su @IsDefined(): rechaza null igual que undefined.
+        if (value === null || value === undefined) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          return res.end(JSON.stringify({ message: 'value debe estar definido' }))
+        }
         almacen.set(key, value)
         ttlsRecibidos.push(ttl)
         res.writeHead(201, { 'content-type': 'application/json' })
@@ -116,6 +121,19 @@ describe('invalidarCache', () => {
     await invalidarCache('api_fastify:GET:~articulos~5', 'trace-1')
 
     expect(ttlsRecibidos).toEqual([60, 1])
+  })
+
+  it('la entrada deja de servirse (queda pisada), no manda value null (su API lo rechaza)', async () => {
+    almacen = new Map()
+    process.env.CACHE_URL = `http://127.0.0.1:${servidor.address().port}`
+
+    await guardarEnCache('api_fastify:GET:~articulos~5', { id: 5, nombre: 'Harina' }, 'trace-1')
+    await invalidarCache('api_fastify:GET:~articulos~5', 'trace-1')
+
+    // Si mandara null, su API respondería 400 y la entrada vieja seguiría
+    // viva — esto confirma que el POST de invalidación sí fue aceptado.
+    const valor = await obtenerDeCache('api_fastify:GET:~articulos~5', 'trace-1')
+    expect(valor).toEqual({ invalidado: true })
   })
 
   it('no lanza error si el servidor de cache no responde', async () => {

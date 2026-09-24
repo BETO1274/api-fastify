@@ -80,6 +80,8 @@ export async function guardarEnCache(key, value, traceId, ttl = TTL_SEGUNDOS_DEF
 // sobre esa misma ruta. Reusa guardarEnCache con TTL mínimo — su API no
 // tiene borrar, así que la entrada vieja muere casi al instante en vez de
 // vivir los 60s normales y servir datos obsoletos.
+// El value no puede ser null: su GuardarCacheDto usa @IsDefined(), que en
+// class-validator rechaza null igual que undefined (400 Bad Request).
 export async function invalidarCache(key, traceId) {
-  await guardarEnCache(key, null, traceId, TTL_SEGUNDOS_INVALIDACION)
+  await guardarEnCache(key, { invalidado: true }, traceId, TTL_SEGUNDOS_INVALIDACION)
 }
