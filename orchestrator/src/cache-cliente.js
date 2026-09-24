@@ -9,6 +9,10 @@
 // orquestador debe seguir funcionando igual — nunca se deja que un fallo de
 // cache tumbe el flujo real de la tarea.
 const TTL_SEGUNDOS_DEFAULT = 60
+// Su Cache no soporta borrar (solo GET/POST) — para invalidar una entrada
+// tras una escritura, se sobreescribe con este TTL mínimo (el piso que deja
+// su contrato) en vez del TTL normal.
+const TTL_SEGUNDOS_INVALIDACION = 1
 const TIMEOUT_MS = 3000
 
 function headersComunes(traceId) {
@@ -70,4 +74,12 @@ export async function guardarEnCache(key, value, traceId, ttl = TTL_SEGUNDOS_DEF
   } finally {
     clearTimeout(temporizador)
   }
+}
+
+// Invalida una entrada existente tras una escritura (POST/PATCH/DELETE)
+// sobre esa misma ruta. Reusa guardarEnCache con TTL mínimo — su API no
+// tiene borrar, así que la entrada vieja muere casi al instante en vez de
+// vivir los 60s normales y servir datos obsoletos.
+export async function invalidarCache(key, traceId) {
+  await guardarEnCache(key, null, traceId, TTL_SEGUNDOS_INVALIDACION)
 }

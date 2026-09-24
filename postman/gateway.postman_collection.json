@@ -1,14 +1,14 @@
 {
   "info": {
     "name": "Gateway Multicloud — Orchestrator",
-    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud) — todas las peticiones van a la IP del gateway, nunca directo a las 3 APIs. Cubre todos los endpoints de lectura (GET/QUERY) conocidos de las 3 APIs, confirmados leyendo sus repos reales, más el CRUD completo (los 6 verbos) contra nuestra propia api_fastify.\n\nCada request de \"crear tarea\" responde 202 de inmediato y guarda el id en una variable de colección; el request \"resultado\" siguiente consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó.\n\nComo el flujo es asíncrono, corre esta colección con el Collection Runner y configura un \"Delay\" de al menos 2000ms entre requests (Runner → ⚙️ → Delay), **en orden de arriba hacia abajo** — la carpeta 04 encadena el id creado a través de sus propios requests (crear → leer → actualizar → borrar → confirmar 404).\n\nA propósito NO incluye POST/PATCH/PUT/DELETE contra deportBack ni Inventario-U — escribir o borrar datos reales de sus demos sin coordinarlo con ellos es riesgoso. Para nuestra propia api_fastify sí se prueban los 6 verbos (GET, POST, PATCH, DELETE, QUERY vía el envelope orquestado, y ninguno usa PUT porque nuestra API no lo implementa — usa PATCH), sobre un dato desechable que la misma colección crea y borra.\n\nNotas de contrato descubiertas probando en vivo:\n- 'Registros' no tiene una ruta /buscar propia — el equivalente de búsqueda es GET /registros con filtros por query.\n- 'Logros' exige habitoId o deportistaId como query param (regla de su servicio, no está en el DTO). Puede fallar intermitentemente al correr toda la colección seguida (funciona 3/3 veces suelto) — es su servicio bajo carga sostenida, no algo de nuestro lado.\n- 'GET api/v2/integracion' de Inventario-U puede fallar con 502 si deportBack no responde a tiempo — ellos llaman directo a deportBack para armar esa integración, sin pasar por nuestro gateway. No es un bug nuestro.",
+    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud) — todas las peticiones van a la IP del gateway, nunca directo a las 3 APIs. Cubre todos los endpoints de lectura (GET/QUERY) conocidos de las 3 APIs, confirmados leyendo sus repos reales, más el CRUD completo (los 6 verbos) contra nuestra propia api_fastify.\n\nCada par está numerado dentro de su carpeta (1.1/1.2, 2.1/2.2, ...): el '.1' crea la tarea contra el gateway (responde 202 de inmediato con el id), el '.2' consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó. Correr en orden, de arriba hacia abajo, con el Collection Runner y un Delay de al menos 2000ms (Runner → ⚙️ → Delay) — la carpeta 04 además encadena el id creado a través de sus propios pasos (crear → leer → actualizar → borrar → confirmar 404).\n\nA propósito NO incluye POST/PATCH/PUT/DELETE contra deportBack ni Inventario-U — escribir o borrar datos reales de sus demos sin coordinarlo con ellos es riesgoso. Para nuestra propia api_fastify sí se prueban los 6 verbos (no hay PUT porque nuestra API no lo implementa, usa PATCH), sobre un dato desechable que la misma colección crea y borra.\n\nNotas de contrato descubiertas probando en vivo:\n- 'Registros' no tiene una ruta /buscar propia — el equivalente de búsqueda es GET /registros con filtros por query.\n- 'Logros' exige habitoId o deportistaId como query param (regla de su servicio, no está en el DTO). Puede fallar intermitentemente al correr toda la colección seguida (funciona 3/3 veces suelto) — es su servicio bajo carga sostenida, no algo de nuestro lado.\n- 'GET api/v2/integracion' de Inventario-U puede fallar con 502 si deportBack no responde a tiempo — ellos llaman directo a deportBack para armar esa integración, sin pasar por nuestro gateway. No es un bug nuestro.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "tarea_id",
       "value": "",
-      "description": "Se sobreescribe con cada request de creación — el 'resultado' siguiente lo usa."
+      "description": "Se sobreescribe con cada request '.1' — el '.2' siguiente lo usa."
     },
     {
       "key": "articulo_creado_id",
@@ -21,7 +21,7 @@
       "name": "00 - Salud y seguridad",
       "item": [
         {
-          "name": "GET /health (sin key, siempre abierto)",
+          "name": "1 - GET /health (sin key, siempre abierto)",
           "request": {
             "method": "GET",
             "header": [],
@@ -48,7 +48,7 @@
           ]
         },
         {
-          "name": "GET api_fastify/articulos sin X-Api-Key (401 esperado)",
+          "name": "2 - GET api_fastify/articulos sin X-Api-Key (401 esperado)",
           "request": {
             "method": "GET",
             "header": [],
@@ -81,7 +81,7 @@
       "name": "01 - api_fastify (v1 lectura + v2)",
       "item": [
         {
-          "name": "Crear tarea - GET articulos (v1)",
+          "name": "1.1 - Crear tarea: GET articulos (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -116,7 +116,7 @@
           ]
         },
         {
-          "name": "Resultado - GET articulos (v1)",
+          "name": "1.2 - Resultado: GET articulos (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -156,7 +156,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET articulos/1 (v1)",
+          "name": "2.1 - Crear tarea: GET articulos/1 (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -192,7 +192,7 @@
           ]
         },
         {
-          "name": "Resultado - GET articulos/1 (v1)",
+          "name": "2.2 - Resultado: GET articulos/1 (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -231,7 +231,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY articulos/search (v1)",
+          "name": "3.1 - Crear tarea: QUERY articulos/search (v1)",
           "request": {
             "method": "QUERY",
             "header": [
@@ -275,7 +275,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY articulos/search (v1)",
+          "name": "3.2 - Resultado: QUERY articulos/search (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -314,7 +314,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET stock (v1)",
+          "name": "4.1 - Crear tarea: GET stock (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -349,7 +349,7 @@
           ]
         },
         {
-          "name": "Resultado - GET stock (v1)",
+          "name": "4.2 - Resultado: GET stock (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -388,7 +388,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY stock/search (v1)",
+          "name": "5.1 - Crear tarea: QUERY stock/search (v1)",
           "request": {
             "method": "QUERY",
             "header": [
@@ -432,7 +432,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY stock/search (v1)",
+          "name": "5.2 - Resultado: QUERY stock/search (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -471,7 +471,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET recetas (v1)",
+          "name": "6.1 - Crear tarea: GET recetas (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -506,7 +506,7 @@
           ]
         },
         {
-          "name": "Resultado - GET recetas (v1)",
+          "name": "6.2 - Resultado: GET recetas (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -545,7 +545,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY recetas/search (v1)",
+          "name": "7.1 - Crear tarea: QUERY recetas/search (v1)",
           "request": {
             "method": "QUERY",
             "header": [
@@ -589,7 +589,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY recetas/search (v1)",
+          "name": "7.2 - Resultado: QUERY recetas/search (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -628,7 +628,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET fabricaciones (v1)",
+          "name": "8.1 - Crear tarea: GET fabricaciones (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -663,7 +663,7 @@
           ]
         },
         {
-          "name": "Resultado - GET fabricaciones (v1)",
+          "name": "8.2 - Resultado: GET fabricaciones (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -702,7 +702,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY fabricaciones/search (v1)",
+          "name": "9.1 - Crear tarea: QUERY fabricaciones/search (v1)",
           "request": {
             "method": "QUERY",
             "header": [
@@ -746,7 +746,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY fabricaciones/search (v1)",
+          "name": "9.2 - Resultado: QUERY fabricaciones/search (v1)",
           "request": {
             "method": "GET",
             "header": [
@@ -785,7 +785,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET api/v2/articulos/top (envelope combinado)",
+          "name": "10.1 - Crear tarea: GET api/v2/articulos/top (envelope combinado)",
           "request": {
             "method": "GET",
             "header": [
@@ -823,7 +823,7 @@
           ]
         },
         {
-          "name": "Resultado - GET api/v2/articulos/top (envelope combinado)",
+          "name": "10.2 - Resultado: GET api/v2/articulos/top (envelope combinado)",
           "request": {
             "method": "GET",
             "header": [
@@ -866,7 +866,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET api/v2/stock/top",
+          "name": "11.1 - Crear tarea: GET api/v2/stock/top",
           "request": {
             "method": "GET",
             "header": [
@@ -904,7 +904,7 @@
           ]
         },
         {
-          "name": "Resultado - GET api/v2/stock/top",
+          "name": "11.2 - Resultado: GET api/v2/stock/top",
           "request": {
             "method": "GET",
             "header": [
@@ -943,7 +943,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET api/v2/recetas/top",
+          "name": "12.1 - Crear tarea: GET api/v2/recetas/top",
           "request": {
             "method": "GET",
             "header": [
@@ -981,7 +981,7 @@
           ]
         },
         {
-          "name": "Resultado - GET api/v2/recetas/top",
+          "name": "12.2 - Resultado: GET api/v2/recetas/top",
           "request": {
             "method": "GET",
             "header": [
@@ -1020,7 +1020,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET api/v2/fabricaciones/top",
+          "name": "13.1 - Crear tarea: GET api/v2/fabricaciones/top",
           "request": {
             "method": "GET",
             "header": [
@@ -1058,7 +1058,7 @@
           ]
         },
         {
-          "name": "Resultado - GET api/v2/fabricaciones/top",
+          "name": "13.2 - Resultado: GET api/v2/fabricaciones/top",
           "request": {
             "method": "GET",
             "header": [
@@ -1102,7 +1102,7 @@
       "name": "02 - deportBack (Deportistas, Habitos, Logros, Registros, Cache)",
       "item": [
         {
-          "name": "Crear tarea - GET deportistas (1a vez, cache miss)",
+          "name": "1.1 - Crear tarea: GET deportistas (1a vez, cache miss)",
           "request": {
             "method": "GET",
             "header": [
@@ -1137,7 +1137,7 @@
           ]
         },
         {
-          "name": "Resultado - GET deportistas (1a vez, cache miss)",
+          "name": "1.2 - Resultado: GET deportistas (1a vez, cache miss)",
           "request": {
             "method": "GET",
             "header": [
@@ -1176,7 +1176,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET deportistas (2a vez, deberia venir de Cache)",
+          "name": "2.1 - Crear tarea: GET deportistas (2a vez, deberia venir de Cache)",
           "request": {
             "method": "GET",
             "header": [
@@ -1211,7 +1211,7 @@
           ]
         },
         {
-          "name": "Resultado - GET deportistas (2a vez, deberia venir de Cache)",
+          "name": "2.2 - Resultado: GET deportistas (2a vez, deberia venir de Cache)",
           "request": {
             "method": "GET",
             "header": [
@@ -1251,7 +1251,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET cache/:key (leer lo recien guardado — TTL 60s, por eso va aqui)",
+          "name": "3.1 - Crear tarea: GET cache/:key (leer lo recien guardado — TTL 60s, por eso va aqui)",
           "request": {
             "method": "GET",
             "header": [
@@ -1287,7 +1287,7 @@
           ]
         },
         {
-          "name": "Resultado - GET cache/:key (leer lo recien guardado — TTL 60s, por eso va aqui)",
+          "name": "3.2 - Resultado: GET cache/:key (leer lo recien guardado — TTL 60s, por eso va aqui)",
           "request": {
             "method": "GET",
             "header": [
@@ -1326,7 +1326,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET deportistas/:id",
+          "name": "4.1 - Crear tarea: GET deportistas/:id",
           "request": {
             "method": "GET",
             "header": [
@@ -1362,7 +1362,7 @@
           ]
         },
         {
-          "name": "Resultado - GET deportistas/:id",
+          "name": "4.2 - Resultado: GET deportistas/:id",
           "request": {
             "method": "GET",
             "header": [
@@ -1401,7 +1401,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY deportistas (POST /buscar, equivalente a QUERY)",
+          "name": "5.1 - Crear tarea: QUERY deportistas (POST /buscar, equivalente a QUERY)",
           "request": {
             "method": "POST",
             "header": [
@@ -1445,7 +1445,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY deportistas (POST /buscar, equivalente a QUERY)",
+          "name": "5.2 - Resultado: QUERY deportistas (POST /buscar, equivalente a QUERY)",
           "request": {
             "method": "GET",
             "header": [
@@ -1484,7 +1484,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET api/v2/deportistas/:id (con apis_externas embebidas)",
+          "name": "6.1 - Crear tarea: GET api/v2/deportistas/:id (con apis_externas embebidas)",
           "request": {
             "method": "GET",
             "header": [
@@ -1522,7 +1522,7 @@
           ]
         },
         {
-          "name": "Resultado - GET api/v2/deportistas/:id (con apis_externas embebidas)",
+          "name": "6.2 - Resultado: GET api/v2/deportistas/:id (con apis_externas embebidas)",
           "request": {
             "method": "GET",
             "header": [
@@ -1561,7 +1561,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET habitos",
+          "name": "7.1 - Crear tarea: GET habitos",
           "request": {
             "method": "GET",
             "header": [
@@ -1596,7 +1596,7 @@
           ]
         },
         {
-          "name": "Resultado - GET habitos",
+          "name": "7.2 - Resultado: GET habitos",
           "request": {
             "method": "GET",
             "header": [
@@ -1635,7 +1635,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY habitos (POST /buscar)",
+          "name": "8.1 - Crear tarea: QUERY habitos (POST /buscar)",
           "request": {
             "method": "POST",
             "header": [
@@ -1679,7 +1679,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY habitos (POST /buscar)",
+          "name": "8.2 - Resultado: QUERY habitos (POST /buscar)",
           "request": {
             "method": "GET",
             "header": [
@@ -1718,7 +1718,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET logros (filtrado por deportistaId, es obligatorio)",
+          "name": "9.1 - Crear tarea: GET logros (filtrado por deportistaId, es obligatorio)",
           "request": {
             "method": "GET",
             "header": [
@@ -1753,7 +1753,7 @@
           ]
         },
         {
-          "name": "Resultado - GET logros (filtrado por deportistaId, es obligatorio)",
+          "name": "9.2 - Resultado: GET logros (filtrado por deportistaId, es obligatorio)",
           "request": {
             "method": "GET",
             "header": [
@@ -1792,7 +1792,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET registros (su equivalente de busqueda, no tiene /buscar)",
+          "name": "10.1 - Crear tarea: GET registros (su equivalente de busqueda, no tiene /buscar)",
           "request": {
             "method": "GET",
             "header": [
@@ -1827,7 +1827,7 @@
           ]
         },
         {
-          "name": "Resultado - GET registros (su equivalente de busqueda, no tiene /buscar)",
+          "name": "10.2 - Resultado: GET registros (su equivalente de busqueda, no tiene /buscar)",
           "request": {
             "method": "GET",
             "header": [
@@ -1871,7 +1871,7 @@
       "name": "03 - Inventario-U (SKUs, Almacenes, Movimientos, query, v2)",
       "item": [
         {
-          "name": "Crear tarea - GET skus",
+          "name": "1.1 - Crear tarea: GET skus",
           "request": {
             "method": "GET",
             "header": [
@@ -1906,7 +1906,7 @@
           ]
         },
         {
-          "name": "Resultado - GET skus",
+          "name": "1.2 - Resultado: GET skus",
           "request": {
             "method": "GET",
             "header": [
@@ -1945,7 +1945,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET skus/1",
+          "name": "2.1 - Crear tarea: GET skus/1",
           "request": {
             "method": "GET",
             "header": [
@@ -1981,7 +1981,7 @@
           ]
         },
         {
-          "name": "Resultado - GET skus/1",
+          "name": "2.2 - Resultado: GET skus/1",
           "request": {
             "method": "GET",
             "header": [
@@ -2020,7 +2020,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET almacenes",
+          "name": "3.1 - Crear tarea: GET almacenes",
           "request": {
             "method": "GET",
             "header": [
@@ -2055,7 +2055,7 @@
           ]
         },
         {
-          "name": "Resultado - GET almacenes",
+          "name": "3.2 - Resultado: GET almacenes",
           "request": {
             "method": "GET",
             "header": [
@@ -2094,7 +2094,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET almacenes/1",
+          "name": "4.1 - Crear tarea: GET almacenes/1",
           "request": {
             "method": "GET",
             "header": [
@@ -2130,7 +2130,7 @@
           ]
         },
         {
-          "name": "Resultado - GET almacenes/1",
+          "name": "4.2 - Resultado: GET almacenes/1",
           "request": {
             "method": "GET",
             "header": [
@@ -2169,7 +2169,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET movimientos",
+          "name": "5.1 - Crear tarea: GET movimientos",
           "request": {
             "method": "GET",
             "header": [
@@ -2204,7 +2204,7 @@
           ]
         },
         {
-          "name": "Resultado - GET movimientos",
+          "name": "5.2 - Resultado: GET movimientos",
           "request": {
             "method": "GET",
             "header": [
@@ -2243,7 +2243,7 @@
           ]
         },
         {
-          "name": "Crear tarea - QUERY inventario/query",
+          "name": "6.1 - Crear tarea: QUERY inventario/query",
           "request": {
             "method": "QUERY",
             "header": [
@@ -2287,7 +2287,7 @@
           ]
         },
         {
-          "name": "Resultado - QUERY inventario/query",
+          "name": "6.2 - Resultado: QUERY inventario/query",
           "request": {
             "method": "GET",
             "header": [
@@ -2326,7 +2326,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET api/v2/integracion (puede fallar 502 - depende de que deportBack responda a Inventario-U)",
+          "name": "7.1 - Crear tarea: GET api/v2/integracion (puede fallar 502 - depende de que deportBack responda a Inventario-U)",
           "request": {
             "method": "GET",
             "header": [
@@ -2363,7 +2363,7 @@
           ]
         },
         {
-          "name": "Resultado - GET api/v2/integracion (puede fallar 502 - depende de que deportBack responda a Inventario-U)",
+          "name": "7.2 - Resultado: GET api/v2/integracion (puede fallar 502 - depende de que deportBack responda a Inventario-U)",
           "request": {
             "method": "GET",
             "header": [
@@ -2407,7 +2407,7 @@
       "name": "04 - api_fastify: los 6 verbos completos (crea y borra su propio dato)",
       "item": [
         {
-          "name": "Crear tarea - POST articulos (crear)",
+          "name": "1.1 - Crear tarea: POST articulos (crear)",
           "request": {
             "method": "POST",
             "header": [
@@ -2450,7 +2450,7 @@
           ]
         },
         {
-          "name": "Resultado - POST articulos (crear)",
+          "name": "1.2 - Resultado: POST articulos (crear)",
           "request": {
             "method": "GET",
             "header": [
@@ -2489,7 +2489,7 @@
           ]
         },
         {
-          "name": "Crear tarea - GET articulos/:id (verificar que se creo)",
+          "name": "2.1 - Crear tarea: GET articulos/:id (verificar que se creo)",
           "request": {
             "method": "GET",
             "header": [
@@ -2525,7 +2525,7 @@
           ]
         },
         {
-          "name": "Resultado - GET articulos/:id (verificar que se creo)",
+          "name": "2.2 - Resultado: GET articulos/:id (verificar que se creo)",
           "request": {
             "method": "GET",
             "header": [
@@ -2564,7 +2564,7 @@
           ]
         },
         {
-          "name": "Crear tarea - PATCH articulos/:id (actualizar)",
+          "name": "3.1 - Crear tarea: PATCH articulos/:id (actualizar)",
           "request": {
             "method": "PATCH",
             "header": [
@@ -2608,7 +2608,7 @@
           ]
         },
         {
-          "name": "Resultado - PATCH articulos/:id (actualizar)",
+          "name": "3.2 - Resultado: PATCH articulos/:id (actualizar)",
           "request": {
             "method": "GET",
             "header": [
@@ -2647,7 +2647,7 @@
           ]
         },
         {
-          "name": "Crear tarea - DELETE articulos/:id (borrar)",
+          "name": "4.1 - Crear tarea: DELETE articulos/:id (borrar)",
           "request": {
             "method": "DELETE",
             "header": [
@@ -2683,7 +2683,7 @@
           ]
         },
         {
-          "name": "Resultado - DELETE articulos/:id (borrar)",
+          "name": "4.2 - Resultado: DELETE articulos/:id (borrar)",
           "request": {
             "method": "GET",
             "header": [
@@ -2722,7 +2722,7 @@
           ]
         },
         {
-          "name": "Confirmar borrado - GET articulos/:id (404 esperado)",
+          "name": "5.1 - Crear tarea: Confirmar borrado - GET articulos/:id (404 esperado)",
           "request": {
             "method": "GET",
             "header": [
@@ -2758,7 +2758,7 @@
           ]
         },
         {
-          "name": "Resultado - confirmar borrado (404 de api_fastify)",
+          "name": "5.2 - Resultado: Confirmar borrado (404 de api_fastify)",
           "request": {
             "method": "GET",
             "header": [

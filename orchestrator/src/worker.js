@@ -8,7 +8,7 @@ if (existsSync('.env')) {
 const { ServiceBusClient } = await import('@azure/service-bus')
 const { despachar } = await import('./dispatcher.js')
 const { actualizarTarea } = await import('./tareas.js')
-const { claveDeCache, obtenerDeCache, guardarEnCache } = await import('./cache-cliente.js')
+const { claveDeCache, obtenerDeCache, guardarEnCache, invalidarCache } = await import('./cache-cliente.js')
 const { guardarEnStorage } = await import('./storage-cliente.js')
 const { registro } = await import('./metricas.js')
 
@@ -111,7 +111,17 @@ receiver.subscribe({
     // se completa igual para no repetir el efecto (por ejemplo, un POST doble).
     console.log(`Tarea ${tarea.id} completada — status ${resultado.status}`)
     await registrarEstado(tarea.id, { estado: 'completado', resultado })
-    if (claveCache) await guardarEnCache(claveCache, resultado, traceId)
+    if (claveCache) {
+      await guardarEnCache(claveCache, resultado, traceId)
+    } else {
+      // Una escritura (POST/PATCH/DELETE) exitosa sobre esta misma ruta deja
+      // obsoleta cualquier lectura (GET) cacheada de esa ruta — por ejemplo,
+      // un DELETE /articulos/5 invalida el GET /articulos/5 que hubiera
+      // quedado guardado. Su Cache no tiene borrar, así que se sobreescribe
+      // con el TTL mínimo que permite su contrato (1s) en vez de dejarla
+      // viva los 60s normales.
+      await invalidarCache(claveDeCache({ ...tarea, metodo: 'GET' }), traceId)
+    }
     // Storage guarda siempre, sin importar el método — es el registro
     // histórico del flujo completo (a diferencia de la Cache, que es solo GET).
     await guardarEnStorage(traceId, resultado)

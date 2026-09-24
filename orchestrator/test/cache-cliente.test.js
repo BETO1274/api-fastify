@@ -1,12 +1,13 @@
 import { createServer } from 'node:http'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { claveDeCache, guardarEnCache, obtenerDeCache } from '../src/cache-cliente.js'
+import { claveDeCache, guardarEnCache, invalidarCache, obtenerDeCache } from '../src/cache-cliente.js'
 
 // Cache falsa de deportBack: implementa el contrato real
 // (GET /cache/:key -> 200|404, POST /cache -> 201) sobre un Map en memoria.
 let servidor
 let almacen
 let recibidas = []
+let ttlsRecibidos = []
 
 beforeAll(async () => {
   servidor = createServer((req, res) => {
@@ -18,6 +19,7 @@ beforeAll(async () => {
       if (req.method === 'POST' && req.url === '/cache') {
         const { key, value, ttl } = JSON.parse(cuerpo)
         almacen.set(key, value)
+        ttlsRecibidos.push(ttl)
         res.writeHead(201, { 'content-type': 'application/json' })
         return res.end(JSON.stringify({ key, ttl }))
       }
@@ -46,6 +48,7 @@ afterAll(async () => {
 afterEach(() => {
   almacen = new Map()
   recibidas = []
+  ttlsRecibidos = []
   delete process.env.CACHE_URL
   delete process.env.TEAM_API_KEY
 })
@@ -101,5 +104,23 @@ describe('obtenerDeCache / guardarEnCache', () => {
 
     await expect(guardarEnCache('k', 'v', 'trace-1')).resolves.toBeUndefined()
     await expect(obtenerDeCache('k', 'trace-1')).resolves.toBeUndefined()
+  })
+})
+
+describe('invalidarCache', () => {
+  it('sobreescribe la entrada con TTL de 1 segundo (no hay borrar en su API)', async () => {
+    almacen = new Map()
+    process.env.CACHE_URL = `http://127.0.0.1:${servidor.address().port}`
+
+    await guardarEnCache('api_fastify:GET:~articulos~5', { id: 5, nombre: 'Harina' }, 'trace-1')
+    await invalidarCache('api_fastify:GET:~articulos~5', 'trace-1')
+
+    expect(ttlsRecibidos).toEqual([60, 1])
+  })
+
+  it('no lanza error si el servidor de cache no responde', async () => {
+    process.env.CACHE_URL = 'http://127.0.0.1:1' // puerto cerrado
+
+    await expect(invalidarCache('k', 'trace-1')).resolves.toBeUndefined()
   })
 })
