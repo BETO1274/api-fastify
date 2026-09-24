@@ -1,5 +1,6 @@
 # Misma imagen que el orquestador, pero arrancando el consumidor de la cola.
-# No expone puerto ni tiene probes HTTP: es un proceso que solo escucha la cola.
+# No tiene probes HTTP (no hay endpoint de salud), pero sí expone /metrics
+# en METRICS_PORT para las métricas de las llamadas al Storage.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,6 +15,10 @@ spec:
     metadata:
       labels:
         app: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "3101"
     spec:
       imagePullSecrets:
         - name: ghcr-pull-secret
@@ -21,6 +26,8 @@ spec:
         - name: worker
           image: ghcr.io/beto1274/orchestrator-produccion:latest
           command: ["node", "src/worker.js"]
+          ports:
+            - containerPort: 3101
           envFrom:
             - configMapRef:
                 name: orchestrator-config

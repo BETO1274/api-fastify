@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { createServer } from 'node:http'
 
 if (existsSync('.env')) {
   process.loadEnvFile('.env')
@@ -9,9 +10,26 @@ const { despachar } = await import('./dispatcher.js')
 const { actualizarTarea } = await import('./tareas.js')
 const { claveDeCache, obtenerDeCache, guardarEnCache } = await import('./cache-cliente.js')
 const { guardarEnStorage } = await import('./storage-cliente.js')
+const { registro } = await import('./metricas.js')
 
 const QUEUE_NAME = process.env.SERVICEBUS_QUEUE_NAME || 'tareas-orquestador'
 const MAX_DELIVERY_COUNT = Number(process.env.SERVICEBUS_MAX_DELIVERY_COUNT || 3)
+
+// Las llamadas al Storage pasan por este proceso (no por el orchestrator
+// API), así que las métricas de /metrics de app.js nunca las verían — el
+// worker necesita su propio endpoint mínimo para que Alloy lo scrapee.
+const METRICS_PORT = Number(process.env.METRICS_PORT || 3101)
+createServer(async (request, response) => {
+  if (request.url === '/metrics') {
+    response.setHeader('Content-Type', registro.contentType)
+    response.end(await registro.metrics())
+    return
+  }
+  response.writeHead(404)
+  response.end()
+}).listen(METRICS_PORT, () => {
+  console.log(`Métricas del worker en :${METRICS_PORT}/metrics`)
+})
 
 const connectionString = process.env.SERVICEBUS_CONNECTION_STRING
 if (!connectionString) {
