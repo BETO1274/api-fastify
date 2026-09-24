@@ -6,6 +6,8 @@
 // A diferencia de la Cache (solo GET), el Storage guarda SIEMPRE: es el
 // registro histórico del flujo completo, sin importar el método. Igual que
 // la Cache, es una optimización/auditoría — nunca debe tumbar el flujo real.
+import { storageDuracionSegundos, storageLlamadasTotal } from './metricas.js'
+
 const TIMEOUT_MS = 5000
 
 function headersComunes(traceId) {
@@ -21,18 +23,22 @@ export async function guardarEnStorage(traceId, data) {
 
   const controlador = new AbortController()
   const temporizador = setTimeout(() => controlador.abort(), TIMEOUT_MS)
+  const detenerCronometro = storageDuracionSegundos.startTimer({ operacion: 'guardar' })
 
   try {
-    await fetch(`${urlBase}/api/v2/storage`, {
+    const respuesta = await fetch(`${urlBase}/api/v2/storage`, {
       method: 'POST',
       headers: { ...headersComunes(traceId), 'Content-Type': 'application/json' },
       body: JSON.stringify({ trace_id: traceId, data }),
       signal: controlador.signal
     })
+    storageLlamadasTotal.inc({ operacion: 'guardar', resultado: respuesta.ok ? 'exito' : 'fallo' })
   } catch {
     // no se propaga: guardar en storage nunca debe hacer fallar la tarea real
+    storageLlamadasTotal.inc({ operacion: 'guardar', resultado: 'fallo' })
   } finally {
     clearTimeout(temporizador)
+    detenerCronometro()
   }
 }
 
@@ -42,6 +48,7 @@ export async function obtenerDeStorage(traceId) {
 
   const controlador = new AbortController()
   const temporizador = setTimeout(() => controlador.abort(), TIMEOUT_MS)
+  const detenerCronometro = storageDuracionSegundos.startTimer({ operacion: 'obtener' })
 
   try {
     const respuesta = await fetch(`${urlBase}/api/v2/storage/${encodeURIComponent(traceId)}`, {
@@ -49,11 +56,14 @@ export async function obtenerDeStorage(traceId) {
       signal: controlador.signal
     })
 
+    storageLlamadasTotal.inc({ operacion: 'obtener', resultado: respuesta.ok ? 'exito' : 'fallo' })
     if (!respuesta.ok) return undefined
     return await respuesta.json()
   } catch {
+    storageLlamadasTotal.inc({ operacion: 'obtener', resultado: 'fallo' })
     return undefined
   } finally {
     clearTimeout(temporizador)
+    detenerCronometro()
   }
 }

@@ -18,6 +18,18 @@ describe('health check', () => {
   })
 })
 
+describe('metricas', () => {
+  it('GET /metrics responde 200 en formato Prometheus, sin auth', async () => {
+    const app = buildApp()
+    const respuesta = await app.inject({ method: 'GET', url: '/metrics' })
+
+    expect(respuesta.statusCode).toBe(200)
+    expect(respuesta.body).toContain('storage_llamadas_total')
+    expect(respuesta.body).toContain('storage_duracion_segundos')
+    await app.close()
+  })
+})
+
 describe('POST /orquestar', () => {
   it('responde 202 y crea la tarea en estado pendiente', async () => {
     const app = buildApp()
