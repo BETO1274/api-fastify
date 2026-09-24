@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Gateway Multicloud — Orchestrator",
-    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud) — todas las peticiones van a la IP del gateway, nunca directo a las 3 APIs. Cubre todos los endpoints de lectura (GET/QUERY) conocidos de las 3 APIs, confirmados leyendo sus repos reales — no solo los que ya se habían probado a mano.\n\nCada request de \"crear tarea\" responde 202 de inmediato y guarda el id en una variable de colección; el request \"resultado\" siguiente consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó.\n\nComo el flujo es asíncrono, corre esta colección con el Collection Runner y configura un \"Delay\" de al menos 2000ms entre requests (Runner → ⚙️ → Delay).\n\nA propósito NO incluye POST/PATCH/PUT/DELETE contra deportBack ni Inventario-U — escribir o borrar datos reales de sus demos sin coordinarlo con ellos es riesgoso. Sí incluye el CRUD completo de nuestra propia api_fastify.\n\nLa carpeta 02 (deportback) manda la misma petición de deportistas 2 veces a propósito para demostrar la Cache: la primera es cache miss, la segunda debería resolver casi instantáneo; el request de 'cache/:key' va justo después a propósito, porque el TTL de su Cache es de 60s.\n\nNotas de contrato descubiertas probando en vivo:\n- 'Registros' no tiene una ruta /buscar propia — el equivalente de búsqueda es GET /registros con filtros por query.\n- 'Logros' exige habitoId o deportistaId como query param (regla de su servicio, no está en el DTO).\n- 'GET api/v2/integracion' de Inventario-U puede fallar con 502 si deportBack no responde a tiempo — ellos llaman directo a deportBack para armar esa integración, sin pasar por nuestro gateway. No es un bug nuestro.\n- 'GET logros' puede fallar intermitentemente al correr toda la colección seguida (funciona 3/3 veces suelto) — es su servicio bajo la carga sostenida de las 62 peticiones, no algo de nuestro lado.",
+    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud) — todas las peticiones van a la IP del gateway, nunca directo a las 3 APIs. Cubre todos los endpoints de lectura (GET/QUERY) conocidos de las 3 APIs, confirmados leyendo sus repos reales, más el CRUD completo (los 6 verbos) contra nuestra propia api_fastify.\n\nCada request de \"crear tarea\" responde 202 de inmediato y guarda el id en una variable de colección; el request \"resultado\" siguiente consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó.\n\nComo el flujo es asíncrono, corre esta colección con el Collection Runner y configura un \"Delay\" de al menos 2000ms entre requests (Runner → ⚙️ → Delay), **en orden de arriba hacia abajo** — la carpeta 04 encadena el id creado a través de sus propios requests (crear → leer → actualizar → borrar → confirmar 404).\n\nA propósito NO incluye POST/PATCH/PUT/DELETE contra deportBack ni Inventario-U — escribir o borrar datos reales de sus demos sin coordinarlo con ellos es riesgoso. Para nuestra propia api_fastify sí se prueban los 6 verbos (GET, POST, PATCH, DELETE, QUERY vía el envelope orquestado, y ninguno usa PUT porque nuestra API no lo implementa — usa PATCH), sobre un dato desechable que la misma colección crea y borra.\n\nNotas de contrato descubiertas probando en vivo:\n- 'Registros' no tiene una ruta /buscar propia — el equivalente de búsqueda es GET /registros con filtros por query.\n- 'Logros' exige habitoId o deportistaId como query param (regla de su servicio, no está en el DTO). Puede fallar intermitentemente al correr toda la colección seguida (funciona 3/3 veces suelto) — es su servicio bajo carga sostenida, no algo de nuestro lado.\n- 'GET api/v2/integracion' de Inventario-U puede fallar con 502 si deportBack no responde a tiempo — ellos llaman directo a deportBack para armar esa integración, sin pasar por nuestro gateway. No es un bug nuestro.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -9,6 +9,11 @@
       "key": "tarea_id",
       "value": "",
       "description": "Se sobreescribe con cada request de creación — el 'resultado' siguiente lo usa."
+    },
+    {
+      "key": "articulo_creado_id",
+      "value": "",
+      "description": "Id del articulo creado en la carpeta 04, para encadenar GET/PATCH/DELETE sobre el mismo dato."
     }
   ],
   "item": [
@@ -73,7 +78,7 @@
       ]
     },
     {
-      "name": "01 - api_fastify (v1 completo + v2)",
+      "name": "01 - api_fastify (v1 lectura + v2)",
       "item": [
         {
           "name": "Crear tarea - GET articulos (v1)",
@@ -2390,6 +2395,399 @@
                   "  console.warn('Todavía pendiente — sube el Delay del Runner.');",
                   "} else {",
                   "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 - api_fastify: los 6 verbos completos (crea y borra su propio dato)",
+      "item": [
+        {
+          "name": "Crear tarea - POST articulos (crear)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api_fastify/articulos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_fastify",
+                "articulos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Articulo de prueba gateway {{$timestamp}}\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - POST articulos (crear)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orquestar/{{tarea_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orquestar",
+                "{{tarea_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "  pm.test('creado con id', function () { pm.expect(tarea.resultado.datos.id).to.be.a('number'); });",
+                  "  pm.collectionVariables.set('articulo_creado_id', tarea.resultado.datos.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - GET articulos/:id (verificar que se creo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api_fastify/articulos/{{articulo_creado_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_fastify",
+                "articulos",
+                "{{articulo_creado_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - GET articulos/:id (verificar que se creo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orquestar/{{tarea_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orquestar",
+                "{{tarea_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado === 'pendiente') {",
+                  "  console.warn('Todavía pendiente — sube el Delay del Runner.');",
+                  "} else {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - PATCH articulos/:id (actualizar)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api_fastify/articulos/{{articulo_creado_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_fastify",
+                "articulos",
+                "{{articulo_creado_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Articulo de prueba gateway (actualizado)\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - PATCH articulos/:id (actualizar)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orquestar/{{tarea_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orquestar",
+                "{{tarea_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado === 'pendiente') {",
+                  "  console.warn('Todavía pendiente — sube el Delay del Runner.');",
+                  "} else {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - DELETE articulos/:id (borrar)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api_fastify/articulos/{{articulo_creado_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_fastify",
+                "articulos",
+                "{{articulo_creado_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - DELETE articulos/:id (borrar)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orquestar/{{tarea_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orquestar",
+                "{{tarea_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado === 'pendiente') {",
+                  "  console.warn('Todavía pendiente — sube el Delay del Runner.');",
+                  "} else {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirmar borrado - GET articulos/:id (404 esperado)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api_fastify/articulos/{{articulo_creado_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_fastify",
+                "articulos",
+                "{{articulo_creado_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted (la tarea se acepta igual)', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - confirmar borrado (404 de api_fastify)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Api-Key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orquestar/{{tarea_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orquestar",
+                "{{tarea_id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('la tarea de despacho quedo fallida (404 de api_fastify, articulo ya no existe)', function () { pm.expect(tarea.estado).to.eql('fallido'); });",
                   "}"
                 ]
               }
