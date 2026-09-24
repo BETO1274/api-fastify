@@ -1,0 +1,401 @@
+{
+  "info": {
+    "name": "Gateway Multicloud — Orchestrator",
+    "description": "Suite contra el Gateway público (único punto de entrada del sistema multicloud). Cada request de \"crear tarea\" responde 202 de inmediato y guarda el id en una variable de colección; el request \"resultado\" siguiente consulta GET /orquestar/:id para ver el resultado real una vez el worker la procesó.\n\nComo el flujo es asíncrono, corre esta colección con el Collection Runner y configura un \"Delay\" de al menos 2000ms entre requests (Runner → ⚙️ → Delay) — si no, los requests de \"resultado\" pueden llegar antes de que el worker termine y mostrar estado 'pendiente' en vez de 'completado'.\n\nLa carpeta 03 (deportback) manda la misma petición 2 veces a propósito: la primera es cache miss (llama a la API real de deportBack), la segunda debería resolver desde la Cache distribuida — compara los tiempos de respuesta del segundo 'resultado' contra el primero para verlo.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "tarea_id", "value": "", "description": "Se sobreescribe automáticamente con cada request de creación — el request de 'resultado' siguiente lo usa." }
+  ],
+  "item": [
+    {
+      "name": "00 - Salud y seguridad",
+      "item": [
+        {
+          "name": "GET /health (sin key, siempre abierto)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET api_fastify/articulos sin X-Api-Key (401 esperado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/api_fastify/articulos", "host": ["{{base_url}}"], "path": ["api_fastify", "articulos"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sin key', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - api_fastify (v1 y v2)",
+      "item": [
+        {
+          "name": "Crear tarea - GET articulos (v1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/api_fastify/articulos", "host": ["{{base_url}}"], "path": ["api_fastify", "articulos"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.test('estado pendiente', function () { pm.expect(tarea.estado).to.eql('pendiente'); });",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - GET articulos (v1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado === 'pendiente') {",
+                  "  console.warn('Todavía pendiente — sube el Delay del Runner o vuelve a mandar este request en unos segundos.');",
+                  "} else {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "  pm.test('trae datos', function () { pm.expect(tarea.resultado.datos).to.be.an('array'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - QUERY articulos/search (v1)",
+          "request": {
+            "method": "QUERY",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{team_api_key}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filtros\": { \"tipo\": \"materia_prima\" }\n}"
+            },
+            "url": { "raw": "{{base_url}}/api_fastify/articulos/search", "host": ["{{base_url}}"], "path": ["api_fastify", "articulos", "search"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - QUERY articulos/search (v1)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - GET api/v2/articulos/top (envelope combinado)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/api_fastify/api/v2/articulos/top", "host": ["{{base_url}}"], "path": ["api_fastify", "api", "v2", "articulos", "top"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - GET api/v2/articulos/top (trae apis_externas embebidas)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "  pm.test('trae apis_externas (deportBack + Inventario-U embebidos)', function () {",
+                  "    pm.expect(tarea.resultado.datos.apis_externas).to.have.property('deportback');",
+                  "    pm.expect(tarea.resultado.datos.apis_externas).to.have.property('inventario_u');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - deportBack (Cache incluida)",
+      "item": [
+        {
+          "name": "Crear tarea - GET deportistas (1a vez, cache miss)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/deportback/deportistas", "host": ["{{base_url}}"], "path": ["deportback", "deportistas"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - deportistas (1a vez)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - GET deportistas (2a vez, deberia venir de Cache)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/deportback/deportistas", "host": ["{{base_url}}"], "path": ["deportback", "deportistas"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - deportistas (2a vez, desde Cache)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "  console.log('Si esta respuesta llegó completa casi de inmediato tras crear la tarea, vino de Cache.');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Inventario-U",
+      "item": [
+        {
+          "name": "Crear tarea - GET skus",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/inventario_u/skus", "host": ["{{base_url}}"], "path": ["inventario_u", "skus"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - skus",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear tarea - QUERY inventario/query",
+          "request": {
+            "method": "QUERY",
+            "header": [
+              { "key": "X-Api-Key", "value": "{{team_api_key}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"solo_stock_bajo\": false\n}"
+            },
+            "url": { "raw": "{{base_url}}/inventario_u/inventario/query", "host": ["{{base_url}}"], "path": ["inventario_u", "inventario", "query"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', function () { pm.response.to.have.status(202); });",
+                  "var tarea = pm.response.json();",
+                  "pm.collectionVariables.set('tarea_id', tarea.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resultado - inventario/query",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{team_api_key}}" }],
+            "url": { "raw": "{{base_url}}/orquestar/{{tarea_id}}", "host": ["{{base_url}}"], "path": ["orquestar", "{{tarea_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 ok', function () { pm.response.to.have.status(200); });",
+                  "var tarea = pm.response.json();",
+                  "if (tarea.estado !== 'pendiente') {",
+                  "  pm.test('estado completado', function () { pm.expect(tarea.estado).to.eql('completado'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

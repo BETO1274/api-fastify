@@ -4,11 +4,13 @@ Suite de validación end-to-end contra los ambientes reales (Test, Producción y
 
 ## Archivos
 
-* `api-fastify.postman_collection.json` — la colección (32 requests: CRUD + QUERY + casos 400/404 + validación numérica de la regla de negocio de `fabricacion`).
+* `api-fastify.postman_collection.json` — la colección (32 requests: CRUD + QUERY + casos 400/404 + validación numérica de la regla de negocio de `fabricacion`), contra `api-fastify` directo (v1/v2).
 * `api-fastify-test.postman_environment.json` — `base_url` → Test (público, vía Render).
 * `api-fastify-produccion.postman_environment.json` — `base_url` → Producción (público, vía Render).
 * `api-fastify-local.postman_environment.json` — `base_url` → `http://localhost:3000` (servidor corriendo en tu máquina con `npm run dev`, conectado a la BD real de Supabase Test). Útil para demostrar que `QUERY` funciona sin la restricción de Cloudflare.
-* `api-fastify-aks.postman_environment.json` — `base_url` → el clúster AKS en Azure (fase 2, multicloud). ⚠️ **La IP pública no es fija**: si se borra y recrea el `Service` de Kubernetes, cambia. Verifica con `kubectl get service -n api-fastify` y actualiza el valor de `base_url` en este archivo si ya no responde.
+* `api-fastify-aks.postman_environment.json` — `base_url` → api-fastify directo en el clúster AKS (fase 2, multicloud). ⚠️ **La IP pública no es fija**: si se borra y recrea el `Service` de Kubernetes, cambia. Verifica con `kubectl get service -n api-fastify` y actualiza el valor de `base_url` en este archivo si ya no responde.
+* `gateway.postman_collection.json` — colección aparte, contra el **gateway** (flujo multicloud asíncrono: `POST /orquestar` → `202` con `tarea_id` → `GET /orquestar/:id` para el resultado). Cubre las 3 APIs del equipo (`api_fastify`, `deportback`, `inventario_u`), incluida una demostración de cache-hit contra deportBack. Correrla con **Collection Runner** y un Delay de ≥2000ms entre requests (el flujo es asíncrono).
+* `gateway.postman_environment.json` — `base_url` → IP pública del `Service` `gateway` en AKS. Misma advertencia de IP no fija que el de arriba — verificar con `kubectl get service gateway -n orchestrator`.
 
 ## Variable `team_api_key` (rutas `/api/v2/*`)
 
@@ -38,6 +40,9 @@ npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastif
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-produccion.postman_environment.json
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-local.postman_environment.json  # requiere `npm run dev` corriendo
 npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-aks.postman_environment.json
+
+# Gateway (flujo multicloud) — usar --delay-request para no adelantarse al worker
+npx newman run postman/gateway.postman_collection.json -e postman/gateway.postman_environment.json --delay-request 2000
 ```
 
 ## ⚠️ Nota sobre el verbo QUERY
