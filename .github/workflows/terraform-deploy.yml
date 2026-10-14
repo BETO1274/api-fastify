@@ -48,36 +48,28 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
-      - name: Terraform apply
+      # Fase 1: todo menos los Container Apps. Los contenedores necesitan
+      # que Postgres ya tenga el esquema aplicado, así que arrancarlos antes
+      # de migrar los dejaría crasheando contra una base vacía.
+      - name: "Terraform apply (fase 1 — infraestructura base, sin los contenedores)"
         run: |
           terraform apply -auto-approve \
-            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}"
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -var="team_api_key=${{ secrets.TEAM_API_KEY }}" \
+            -target=azurerm_resource_group.principal \
+            -target=azurerm_postgresql_flexible_server.principal \
+            -target=azurerm_postgresql_flexible_server_firewall_rule.permitir_todo \
+            -target=azurerm_servicebus_namespace.principal \
+            -target=azurerm_servicebus_queue.tareas_orquestador \
+            -target=azurerm_log_analytics_workspace.principal \
+            -target=azurerm_monitor_workspace.principal \
+            -target=azurerm_container_app_environment.principal
 
       - name: Guardar outputs de Terraform
         id: tf
         run: |
-          echo "resource_group=$(terraform output -raw resource_group_name)" >> "$GITHUB_OUTPUT"
-          echo "aks_name=$(terraform output -raw aks_cluster_name)" >> "$GITHUB_OUTPUT"
           echo "postgres_host=$(terraform output -raw postgres_host)" >> "$GITHUB_OUTPUT"
-          echo "servicebus_namespace=$(terraform output -raw servicebus_namespace)" >> "$GITHUB_OUTPUT"
-
-      - name: Obtener la connection string de Service Bus (la generó Terraform, no es un secret fijo)
-        id: sb
-        run: |
-          cs=$(az servicebus namespace authorization-rule keys list \
-            --resource-group "${{ steps.tf.outputs.resource_group }}" \
-            --namespace-name "${{ steps.tf.outputs.servicebus_namespace }}" \
-            --name RootManageSharedAccessKey \
-            --query primaryConnectionString -o tsv)
-          echo "::add-mask::$cs"
-          echo "connection_string=$cs" >> "$GITHUB_OUTPUT"
-
-      - name: Obtener credenciales de AKS
-        run: |
-          az aks get-credentials \
-            --resource-group "${{ steps.tf.outputs.resource_group }}" \
-            --name "${{ steps.tf.outputs.aks_name }}" \
-            --overwrite-existing
 
       - name: Instalar dependencias (raíz, para el script de migración)
         working-directory: .
@@ -98,64 +90,17 @@ jobs:
           npm ci
           node scripts/aplicar-esquema.js
 
-      - name: Crear el Secret de acceso a ghcr.io (usa el token del propio workflow)
-        working-directory: .
+      # Fase 2: ya con la base lista, crea los 4 Container Apps (api-fastify,
+      # orchestrator, worker, gateway) — un solo "apply" instala la API
+      # completa, sin kubectl ni manifiestos de por medio.
+      - name: "Terraform apply (fase 2 — los 4 Container Apps)"
         run: |
-          for ns in api-fastify orchestrator; do
-            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
-            kubectl create secret docker-registry ghcr-pull-secret \
-              --namespace "$ns" \
-              --docker-server=ghcr.io \
-              --docker-username="${{ github.actor }}" \
-              --docker-password="${{ secrets.GITHUB_TOKEN }}" \
-              --docker-email="noreply@github.com" \
-              --dry-run=client -o yaml | kubectl apply -f -
-          done
+          terraform apply -auto-approve \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -var="team_api_key=${{ secrets.TEAM_API_KEY }}"
 
-      - name: Desplegar api-fastify
-        working-directory: .
-        env:
-          POSTGRES_HOST: ${{ steps.tf.outputs.postgres_host }}
+      - name: Mostrar las URLs públicas
         run: |
-          kubectl apply -f k8s/api-fastify/namespace.yaml
-          kubectl apply -f k8s/api-fastify/configmap.yaml
-          kubectl create secret generic api-fastify-secrets \
-            --namespace api-fastify \
-            --from-literal=DATABASE_URL="postgresql://apiadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${POSTGRES_HOST}:5432/postgres?sslmode=require" \
-            --from-literal=TEAM_API_KEY="${{ secrets.TEAM_API_KEY }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -f k8s/api-fastify/deployment.yaml
-          kubectl apply -f k8s/api-fastify/service.yaml
-
-      - name: Desplegar orquestador, worker y gateway
-        working-directory: .
-        env:
-          POSTGRES_HOST: ${{ steps.tf.outputs.postgres_host }}
-        run: |
-          kubectl apply -f k8s/orchestrator/namespace.yaml
-          kubectl apply -f k8s/orchestrator/configmap.yaml
-          kubectl create secret generic orchestrator-secrets \
-            --namespace orchestrator \
-            --from-literal=DATABASE_URL="postgresql://apiadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${POSTGRES_HOST}:5432/postgres?sslmode=require" \
-            --from-literal=SERVICEBUS_CONNECTION_STRING="${{ steps.sb.outputs.connection_string }}" \
-            --from-literal=TEAM_API_KEY="${{ secrets.TEAM_API_KEY }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -f k8s/orchestrator/deployment.yaml
-          kubectl apply -f k8s/orchestrator/service.yaml
-          kubectl apply -f k8s/orchestrator/worker-deployment.yaml
-          kubectl apply -f k8s/gateway/deployment.yaml
-          kubectl apply -f k8s/gateway/service.yaml
-
-      - name: Esperar a que los Deployments queden listos
-        run: |
-          kubectl rollout status deployment/api-fastify -n api-fastify --timeout=180s
-          kubectl rollout status deployment/orchestrator -n orchestrator --timeout=180s
-          kubectl rollout status deployment/worker -n orchestrator --timeout=180s
-          kubectl rollout status deployment/gateway -n orchestrator --timeout=180s
-
-      - name: Mostrar las IPs públicas
-        run: |
-          echo "api-fastify:"
-          kubectl get service api-fastify -n api-fastify
-          echo "gateway:"
-          kubectl get service gateway -n orchestrator
+          echo "api-fastify: $(terraform output -raw api_fastify_url)"
+          echo "gateway:     $(terraform output -raw gateway_url)"

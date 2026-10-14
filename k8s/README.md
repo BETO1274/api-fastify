@@ -1,5 +1,7 @@
 # Manifiestos de Kubernetes (AKS)
 
+> **Obsoleto desde v3.** Esta carpeta documenta el despliegue de la fase 2 (AKS + 3 APIs + Cache/Storage de los otros equipos). A partir de v3 el sistema ya no usa Kubernetes — corre en Azure Container Apps vía Terraform, ver [`terraform/README.md`](../terraform/README.md). Se conserva como referencia histórica, no como el flujo de despliegue vigente.
+
 Clúster AKS `kubernet-devops`, Resource Group `DEVOPS`, región West US. Un componente por carpeta:
 
 | Carpeta | Namespace | Qué es |

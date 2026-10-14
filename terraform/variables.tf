@@ -31,28 +31,40 @@ variable "postgres_admin_password" {
   sensitive   = true
 }
 
-variable "aks_cluster_name" {
-  description = "Nombre del clúster AKS"
+variable "ghcr_username" {
+  description = "Usuario de GitHub para hacer pull de las imágenes privadas de ghcr.io"
   type        = string
-  default     = "kubernet-devops"
+  default     = "BETO1274"
 }
 
-variable "aks_dns_prefix" {
-  description = "DNS prefix del clúster AKS"
+variable "ghcr_token" {
+  description = "Token con permiso read:packages para hacer pull de ghcr.io — nunca lo pongas en este archivo"
   type        = string
-  default     = "kubernet-devops-dns"
+  sensitive   = true
 }
 
-variable "aks_node_count" {
-  description = "Cantidad de nodos del node pool"
-  type        = number
-  default     = 2
+variable "team_api_key" {
+  description = "Key compartida que exigen el gateway y el orquestador — nunca la pongas en este archivo"
+  type        = string
+  sensitive   = true
 }
 
-variable "aks_node_vm_size" {
-  description = "Tamaño de VM de los nodos (x64 — compatible con la imagen Docker de las apps)"
+variable "api_fastify_image" {
+  description = "Imagen de api-fastify a desplegar"
   type        = string
-  default     = "Standard_D2s_v6"
+  default     = "ghcr.io/beto1274/api-fastify-produccion:latest"
+}
+
+variable "orchestrator_image" {
+  description = "Imagen del orchestrator/worker a desplegar (misma imagen, distinto command)"
+  type        = string
+  default     = "ghcr.io/beto1274/orchestrator-produccion:latest"
+}
+
+variable "gateway_image" {
+  description = "Imagen del gateway a desplegar"
+  type        = string
+  default     = "ghcr.io/beto1274/gateway-produccion:latest"
 }
 
 variable "servicebus_namespace_name" {
@@ -68,7 +80,7 @@ variable "servicebus_queue_name" {
 }
 
 variable "servicebus_max_delivery_count" {
-  description = "Intentos de entrega antes de mandar un mensaje a la dead-letter queue — debe coincidir con SERVICEBUS_MAX_DELIVERY_COUNT en k8s/orchestrator/configmap.yaml"
+  description = "Intentos de entrega antes de mandar un mensaje a la dead-letter queue — debe coincidir con el valor que recibe el Container App del worker (ver container-apps.tf)"
   type        = number
   default     = 3
 }

@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   terraform-destroy:
@@ -47,4 +48,6 @@ jobs:
       - name: Terraform destroy
         run: |
           terraform destroy -auto-approve \
-            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}"
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
+            -var="ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -var="team_api_key=${{ secrets.TEAM_API_KEY }}"

@@ -3,11 +3,6 @@ output "resource_group_name" {
   value       = azurerm_resource_group.principal.name
 }
 
-output "aks_cluster_name" {
-  description = "Nombre del clúster AKS"
-  value       = azurerm_kubernetes_cluster.principal.name
-}
-
 output "postgres_host" {
   description = "FQDN del servidor de PostgreSQL"
   value       = azurerm_postgresql_flexible_server.principal.fqdn
@@ -28,7 +23,12 @@ output "monitor_workspace_id" {
   value       = azurerm_monitor_workspace.principal.id
 }
 
-output "aks_kube_config_command" {
-  description = "Comando para obtener las credenciales del clúster"
-  value       = "az aks get-credentials --resource-group ${azurerm_resource_group.principal.name} --name ${azurerm_kubernetes_cluster.principal.name} --overwrite-existing"
+output "api_fastify_url" {
+  description = "URL pública de api-fastify"
+  value       = "https://${azurerm_container_app.api_fastify.latest_revision_fqdn}"
+}
+
+output "gateway_url" {
+  description = "URL pública del gateway — el único punto de entrada del sistema"
+  value       = "https://${azurerm_container_app.gateway.latest_revision_fqdn}"
 }
