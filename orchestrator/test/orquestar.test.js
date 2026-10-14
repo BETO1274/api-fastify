@@ -24,8 +24,8 @@ describe('metricas', () => {
     const respuesta = await app.inject({ method: 'GET', url: '/metrics' })
 
     expect(respuesta.statusCode).toBe(200)
-    expect(respuesta.body).toContain('storage_llamadas_total')
-    expect(respuesta.body).toContain('storage_duracion_segundos')
+    expect(respuesta.body).toContain('dispatcher_llamadas_total')
+    expect(respuesta.body).toContain('dispatcher_duracion_segundos')
     await app.close()
   })
 })

@@ -8,8 +8,6 @@ if (existsSync('.env')) {
 const { ServiceBusClient } = await import('@azure/service-bus')
 const { despachar } = await import('./dispatcher.js')
 const { actualizarTarea } = await import('./tareas.js')
-const { claveDeCache, obtenerDeCache, guardarEnCache, invalidarCache } = await import('./cache-cliente.js')
-const { guardarEnStorage } = await import('./storage-cliente.js')
 const { registro } = await import('./metricas.js')
 
 const QUEUE_NAME = process.env.SERVICEBUS_QUEUE_NAME || 'tareas-orquestador'
@@ -58,24 +56,8 @@ receiver.subscribe({
     console.log(`Procesando tarea ${tarea.id}: ${tarea.metodo} ${tarea.servicio}${tarea.ruta}`)
 
     // El trace-id vino del gateway (o del cliente) — nunca se reemplaza,
-    // para poder seguir la tarea en los logs de las 3 nubes.
+    // para poder seguir la tarea en los logs.
     const traceId = tarea.traceId ?? tarea.id
-
-    // Solo se cachea lectura (GET): cachear POST/PATCH/DELETE serviría datos
-    // viejos después de una escritura real.
-    const esLectura = tarea.metodo === 'GET'
-    const claveCache = esLectura ? claveDeCache(tarea) : null
-
-    if (claveCache) {
-      const enCache = await obtenerDeCache(claveCache, traceId)
-      if (enCache !== undefined) {
-        console.log(`Tarea ${tarea.id} resuelta desde cache (${claveCache})`)
-        await registrarEstado(tarea.id, { estado: 'completado', resultado: enCache })
-        await guardarEnStorage(traceId, enCache)
-        await receiver.completeMessage(mensaje)
-        return
-      }
-    }
 
     let resultado
     try {
@@ -111,20 +93,6 @@ receiver.subscribe({
     // se completa igual para no repetir el efecto (por ejemplo, un POST doble).
     console.log(`Tarea ${tarea.id} completada — status ${resultado.status}`)
     await registrarEstado(tarea.id, { estado: 'completado', resultado })
-    if (claveCache) {
-      await guardarEnCache(claveCache, resultado, traceId)
-    } else {
-      // Una escritura (POST/PATCH/DELETE) exitosa sobre esta misma ruta deja
-      // obsoleta cualquier lectura (GET) cacheada de esa ruta — por ejemplo,
-      // un DELETE /articulos/5 invalida el GET /articulos/5 que hubiera
-      // quedado guardado. Su Cache no tiene borrar, así que se sobreescribe
-      // con el TTL mínimo que permite su contrato (1s) en vez de dejarla
-      // viva los 60s normales.
-      await invalidarCache(claveDeCache({ ...tarea, metodo: 'GET' }), traceId)
-    }
-    // Storage guarda siempre, sin importar el método — es el registro
-    // histórico del flujo completo (a diferencia de la Cache, que es solo GET).
-    await guardarEnStorage(traceId, resultado)
     await receiver.completeMessage(mensaje)
   },
   processError: async (args) => {

@@ -5,11 +5,13 @@ Namespace `orchestrator`, en el mismo clúster AKS que la API (`kubernet-devops`
 | Deployment | Réplicas | Qué es | Service |
 |---|---|---|---|
 | `orchestrator` | 2 | API que guarda la tarea y la encola | `ClusterIP` (solo interno) |
-| `worker` | 2 | Consumidor de la cola; despacha a las 3 APIs y a la Cache de deportBack | ninguno |
+| `worker` | 2 | Consumidor de la cola; despacha a la API propia (`api_fastify`) | ninguno |
 
 `orchestrator` y `worker` usan la misma imagen (`orchestrator-produccion`); el worker solo cambia el `command`.
 
-**Por qué el orquestador es `ClusterIP`:** reenvía a las 3 APIs con la `TEAM_API_KEY`. Si tuviera IP pública y no exigiera key, cualquiera podría escribir y borrar datos en las 3 APIs. Solo el gateway debe poder llamarlo.
+> v3: ya no hay conexión con las APIs de los otros equipos (deportBack, Inventario-U) — tampoco con su Cache ni su Storage. El dispatcher solo conoce `api_fastify`.
+
+**Por qué el orquestador es `ClusterIP`:** reenvía a la API con la `TEAM_API_KEY`. Si tuviera IP pública y no exigiera key, cualquiera podría escribir y borrar datos en la API. Solo el gateway debe poder llamarlo.
 
 ## Requisitos previos
 
