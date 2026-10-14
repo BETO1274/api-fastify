@@ -16,7 +16,11 @@ Esta versión tampoco usa Kubernetes: en vez de AKS, los 4 componentes corren en
 | `postgres.tf` | PostgreSQL Flexible Server + regla de firewall (**la base de datos**) |
 | `servicebus.tf` | El namespace de Service Bus + la cola `tareas-orquestador` |
 | `monitoring.tf` | Log Analytics Workspace + Azure Monitor Workspace (Prometheus administrado) |
-| `container-apps.tf` | El Container Apps Environment + los 4 Container Apps (api-fastify, orchestrator, worker, gateway) |
+| `container_apps_environment.tf` | El Container Apps Environment (la red compartida que usan los 4 Container Apps) |
+| `api_fastify.tf` | El Container App de api-fastify |
+| `orchestrator.tf` | El Container App del orchestrator |
+| `worker.tf` | El Container App del worker |
+| `gateway.tf` | El Container App del gateway |
 | `outputs.tf` | Valores que se necesitan después del deploy (host de Postgres, URLs públicas de api-fastify y el gateway, etc.) |
 
 ## Requisitos previos
