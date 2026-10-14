@@ -1,0 +1,15 @@
+# Copia este archivo a terraform.tfvars (gitignorado) y completa los valores
+# reales. Nunca subas terraform.tfvars al repo — tiene la contraseña de la
+# base de datos.
+
+location                = "westus"
+resource_group_name     = "DEVOPS"
+postgres_server_name    = "devops1274"
+postgres_admin_user     = "apiadmin"
+postgres_admin_password = "CAMBIA_ESTO_POR_UNA_PASSWORD_REAL"
+
+aks_cluster_name = "kubernet-devops"
+aks_node_count   = 2
+
+servicebus_queue_name          = "tareas-orquestador"
+servicebus_max_delivery_count  = 3

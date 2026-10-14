@@ -1,0 +1,113 @@
+# Infraestructura como código (Terraform) — v3
+
+Recrea en Azure los 5 servicios de nube que usa el sistema: **Resource Group, PostgreSQL Flexible Server (la base de datos), AKS, Azure Service Bus (la cola), y el stack de monitoreo (Log Analytics + Azure Monitor Workspace/Prometheus)**. Reemplaza al `infra/main.bicep` de la fase 2 — esta carpeta es la versión vigente para desplegar/destruir la infraestructura de aquí en adelante.
+
+A diferencia de la fase 2, ya no hay conexión con las APIs de los otros equipos (deportBack, Inventario-U) — el sistema queda acotado a: **api-fastify, Gateway, Orchestrator, Worker, la cola y la base de datos**, todo contra la misma nube.
+
+## Por qué está en archivos separados (no un único `main.tf`)
+
+| Archivo | Qué crea |
+|---|---|
+| `versions.tf` | Versión de Terraform, providers (`azurerm`, `random`) |
+| `variables.tf` | Todas las variables de entrada |
+| `resource_group.tf` | El Resource Group |
+| `postgres.tf` | PostgreSQL Flexible Server + regla de firewall (**la base de datos**) |
+| `aks.tf` | El clúster de Kubernetes |
+| `servicebus.tf` | El namespace de Service Bus + la cola `tareas-orquestador` |
+| `monitoring.tf` | Log Analytics Workspace + Azure Monitor Workspace (Prometheus administrado) |
+| `outputs.tf` | Valores que se necesitan después del deploy (host de Postgres, nombre del AKS, etc.) |
+
+## Requisitos previos
+
+* [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.
+* Azure CLI (`az`) instalado y autenticado (`az login`) — Terraform reutiliza esa sesión, no pide credenciales aparte.
+* El Resource Group `DEVOPS` **no** debe existir todavía (este Terraform lo crea; si ya existe con ese nombre, falla al aplicar).
+* Un storage account para el estado remoto de Terraform (ver "Estado remoto" abajo) — **una sola vez**, no en cada deploy.
+
+## Estado remoto (una sola vez, antes del primer `terraform init`)
+
+El estado de Terraform (qué existe y con qué configuración) se guarda en un Storage Account aparte — así el pipeline de `destroy` sabe qué borrar aunque corra en una máquina nueva de GitHub Actions, sin depender de un `terraform.tfstate` local (que además nunca se commitea, con toda razón: tiene datos sensibles).
+
+```bash
+# Resource group aparte, para que sobreviva aunque se destruya el de la app
+az group create --name DEVOPS-tfstate --location westus
+
+# El nombre debe ser único globalmente — cambia el sufijo si falla
+az storage account create --name tfstatedevops1274 --resource-group DEVOPS-tfstate --sku Standard_LRS --allow-blob-public-access false
+
+az storage container create --name tfstate --account-name tfstatedevops1274 --auth-mode login
+```
+
+Guarda el nombre del storage account (`tfstatedevops1274` en el ejemplo) — lo necesitas en el `init` de abajo y en los secrets del pipeline (`TF_STATE_STORAGE_ACCOUNT`).
+
+## Desplegar
+
+1. Copia `terraform.tfvars.example` a `terraform.tfvars` (gitignorado — nunca subas la contraseña real al repo) y completa `postgres_admin_password`.
+2. Inicializa, apuntando al estado remoto (reemplaza el nombre del storage account por el que creaste arriba):
+   ```bash
+   cd terraform
+   terraform init \
+     -backend-config="resource_group_name=DEVOPS-tfstate" \
+     -backend-config="storage_account_name=tfstatedevops1274" \
+     -backend-config="container_name=tfstate" \
+     -backend-config="key=api-fastify.tfstate" \
+     -backend-config="use_azuread_auth=true"
+   ```
+3. Revisa el plan antes de aplicar:
+   ```bash
+   terraform plan
+   ```
+4. Aplica:
+   ```bash
+   terraform apply
+   ```
+   Tarda ~10-15 minutos (AKS es lo que más demora).
+5. Instala la aplicación en el clúster nuevo — sigue el mismo orden que en `k8s/README.md` (`api-fastify/`, `orchestrator/`, `gateway/`), empezando por sacar las credenciales del clúster:
+   ```bash
+   az aks get-credentials --resource-group DEVOPS --name kubernet-devops --overwrite-existing
+   ```
+   (el pipeline `terraform-deploy.yml` automatiza los pasos 2-5, ver más abajo).
+
+## Pipeline automatizado
+
+`.github/workflows/terraform-deploy.yml` corre `terraform apply` y después despliega la API en el clúster nuevo (namespace, configmap, deployment, service) en un solo flujo manual (`workflow_dispatch`), para no desplegar infraestructura por accidente en cada push. Requiere estos secrets configurados en el repo (Settings → Secrets and variables → Actions):
+
+* `AZURE_CREDENTIALS` — credenciales de un Service Principal con permiso sobre la suscripción, en formato `--sdk-auth`:
+  ```bash
+  az ad sp create-for-rbac --name sp-terraform-devops --role Contributor \
+    --scopes /subscriptions/<TU_SUBSCRIPTION_ID> --sdk-auth
+  ```
+  El JSON completo que imprime ese comando es el valor del secret.
+* `POSTGRES_ADMIN_PASSWORD` — la contraseña de PostgreSQL.
+* `TEAM_API_KEY` — la key compartida que ya usa la API.
+* `MIGRATION_DB_URL_PROD` — connection string de Supabase Producción (de donde se copian los datos reales), el mismo que ya usa `pipeline-produccion.yml`.
+* `TF_STATE_RESOURCE_GROUP`, `TF_STATE_STORAGE_ACCOUNT`, `TF_STATE_CONTAINER` — los 3 valores del storage account que creaste en "Estado remoto" arriba.
+
+El `GITHUB_TOKEN` que ya provee Actions automáticamente se usa para el `ghcr-pull-secret` — no hace falta un Personal Access Token aparte para esto.
+
+## Destruir (al terminar la sustentación)
+
+```bash
+cd terraform
+# Si es una terminal nueva (no corriste "terraform init" en esta sesión antes):
+terraform init \
+  -backend-config="resource_group_name=DEVOPS-tfstate" \
+  -backend-config="storage_account_name=tfstatedevops1274" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=api-fastify.tfstate" \
+  -backend-config="use_azuread_auth=true"
+
+terraform destroy
+```
+
+Pide confirmación (`yes`) antes de borrar. Esto elimina **todo** lo que creó este Terraform: AKS (con sus nodos, discos, Load Balancer e IPs públicas), PostgreSQL, Service Bus, y el stack de monitoreo — deja la suscripción en $0.
+
+No hay pérdida real de datos: la copia de la base de datos sigue intacta en Supabase Producción, y `infra/scripts/migrar-a-azure.js` la vuelve a traer completa la próxima vez que se despliegue.
+
+Para destruirlo sin tener la carpeta a mano (por ejemplo, justo después de la sustentación, desde cualquier máquina), el pipeline también expone un job de destrucción manual — ver `.github/workflows/terraform-destroy.yml`, se dispara desde la pestaña Actions de GitHub con **Run workflow**.
+
+## Diferencias vs. el Bicep de la fase 2
+
+* Este Terraform **crea** el Resource Group (el Bicep asumía que ya existía). Ciclo de vida más simple: `apply` lo crea todo, `destroy` lo borra todo.
+* No incluye una IP pública fija para los `Service` de Kubernetes — al recrear el clúster, el Gateway y la API obtienen una IP nueva. Actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/gateway.postman_environment.json` después de cada despliegue.
+* No declara las 29+ reglas de alerta recomendadas que sugiere el asistente del portal — si se quieren, se agregan a mano después del despliegue, igual que en la fase 2.

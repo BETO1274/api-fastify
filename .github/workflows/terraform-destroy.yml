@@ -1,0 +1,50 @@
+name: Terraform - Destruir infraestructura
+
+# Manual a propósito, y con un segundo clic de confirmación (input "confirmar")
+# para no borrar la infraestructura por accidente desde la pestaña Actions.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: 'Escribe "destruir" para confirmar que quieres borrar TODA la infraestructura de Azure'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-destroy:
+    name: Destruir infraestructura (Terraform)
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirmar == 'destruir'
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.8'
+
+      - name: Login en Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+            -backend-config="key=api-fastify.tfstate" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: Terraform destroy
+        run: |
+          terraform destroy -auto-approve \
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}"

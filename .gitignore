@@ -16,3 +16,13 @@ context.md
 credentials.local.md
 k8s/**/secret.local.yaml
 postman/*.local.postman_environment.json
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.tfstate.lock.info
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/*.auto.tfvars
+terraform/crash.log
+terraform/crash.*.log
