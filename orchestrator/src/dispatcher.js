@@ -3,10 +3,10 @@
 // servicio/metodo/ruta/body que llegue se reenvía tal cual.
 import { dispatcherDuracionSegundos, dispatcherLlamadasTotal } from './metricas.js'
 
+// v3: ya no hay conexión con las APIs de los otros equipos — solo
+// despachamos contra nuestra propia api_fastify.
 const URL_POR_SERVICIO = {
-  api_fastify: () => process.env.API_FASTIFY_URL,
-  deportback: () => process.env.DEPORTBACK_URL,
-  inventario_u: () => process.env.INVENTARIO_U_URL
+  api_fastify: () => process.env.API_FASTIFY_URL
 }
 
 export async function despachar({ servicio, metodo, ruta, body, traceId }) {

@@ -203,7 +203,7 @@ describe('GET /orquestar/:id', () => {
     const creacion = await app.inject({
       method: 'POST',
       url: '/orquestar',
-      payload: { servicio: 'inventario_u', metodo: 'GET', ruta: '/skus' }
+      payload: { servicio: 'api_fastify', metodo: 'GET', ruta: '/stock' }
     })
     const id = creacion.json().id
 

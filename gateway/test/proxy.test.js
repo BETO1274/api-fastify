@@ -83,15 +83,15 @@ describe('traducción a POST /orquestar', () => {
     await conApp(async (app) => {
       await app.inject({
         method: 'POST',
-        url: '/inventario_u/movimientos',
-        payload: { sku_id: 1, tipo: 'entrada', cantidad: 5 }
+        url: '/api_fastify/stock',
+        payload: { articulo_id: 1, cantidad: 5 }
       })
 
       expect(recibidas[0].body).toEqual({
-        servicio: 'inventario_u',
+        servicio: 'api_fastify',
         metodo: 'POST',
-        ruta: '/movimientos',
-        body: { sku_id: 1, tipo: 'entrada', cantidad: 5 }
+        ruta: '/stock',
+        body: { articulo_id: 1, cantidad: 5 }
       })
     })
   })
@@ -99,7 +99,7 @@ describe('traducción a POST /orquestar', () => {
   it('reenvía PATCH, PUT y DELETE con su método original', async () => {
     await conApp(async (app) => {
       await app.inject({ method: 'PATCH', url: '/api_fastify/articulos/1', payload: { nombre: 'x' } })
-      await app.inject({ method: 'PUT', url: '/deportback/deportistas/abc', payload: { nombre: 'y' } })
+      await app.inject({ method: 'PUT', url: '/api_fastify/articulos/1', payload: { nombre: 'y' } })
       await app.inject({ method: 'DELETE', url: '/api_fastify/articulos/1' })
 
       expect(recibidas.map((r) => r.body.metodo)).toEqual(['PATCH', 'PUT', 'DELETE'])
@@ -208,7 +208,7 @@ describe('control de acceso', () => {
 })
 
 describe('rutas no válidas', () => {
-  it('responde 404 si el servicio no es uno de los 3 conocidos', async () => {
+  it('responde 404 si el servicio no es api_fastify', async () => {
     await conApp(async (app) => {
       const respuesta = await app.inject({ method: 'GET', url: '/otro_servicio/articulos' })
 

@@ -57,11 +57,11 @@ describe('despachar', () => {
 
   it('lanza error si el servicio no tiene URL configurada', async () => {
     await expect(
-      despachar({ servicio: 'deportback', metodo: 'GET', ruta: '/deportistas', traceId: 'x' })
+      despachar({ servicio: 'api_fastify', metodo: 'GET', ruta: '/articulos', traceId: 'x' })
     ).rejects.toThrow('no hay URL configurada')
   })
 
-  it('lanza error si el servicio no es uno de los 3 conocidos', async () => {
+  it('lanza error si el servicio no es api_fastify', async () => {
     await expect(
       despachar({ servicio: 'otro', metodo: 'GET', ruta: '/x', traceId: 'x' })
     ).rejects.toThrow('servicio desconocido')

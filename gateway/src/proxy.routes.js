@@ -3,7 +3,8 @@ import { Buffer } from 'node:buffer'
 
 const METODOS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'QUERY']
 const METODOS_SIN_BODY = ['GET', 'DELETE']
-const SERVICIOS = ['api_fastify', 'deportback', 'inventario_u']
+// v3: ya no hay conexión con las APIs de los otros equipos.
+const SERVICIOS = ['api_fastify']
 const TIMEOUT_MS = 10000
 
 // Compara la key sin filtrar información por tiempo de respuesta.

@@ -1,6 +1,8 @@
 import { Type } from '@sinclair/typebox'
 
-export const SERVICIOS_VALIDOS = ['api_fastify', 'deportback', 'inventario_u']
+// v3: ya no hay conexión con las APIs de los otros equipos (deportBack,
+// Inventario-U) — el orquestador solo despacha contra nuestra propia API.
+export const SERVICIOS_VALIDOS = ['api_fastify']
 export const METODOS_VALIDOS = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'QUERY']
 
 export const OrquestarBody = Type.Object({
