@@ -80,7 +80,7 @@ variable "servicebus_queue_name" {
 }
 
 variable "servicebus_max_delivery_count" {
-  description = "Intentos de entrega antes de mandar un mensaje a la dead-letter queue — debe coincidir con el valor que recibe el Container App del worker (ver container-apps.tf)"
+  description = "Intentos de entrega antes de mandar un mensaje a la dead-letter queue — debe coincidir con el valor que recibe el Container App del worker (ver modules/azure-platform/worker.tf)"
   type        = number
   default     = 3
 }

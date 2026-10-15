@@ -57,14 +57,14 @@ jobs:
             -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
             -var="ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
             -var="team_api_key=${{ secrets.TEAM_API_KEY }}" \
-            -target=azurerm_resource_group.principal \
-            -target=azurerm_postgresql_flexible_server.principal \
-            -target=azurerm_postgresql_flexible_server_firewall_rule.permitir_todo \
-            -target=azurerm_servicebus_namespace.principal \
-            -target=azurerm_servicebus_queue.tareas_orquestador \
-            -target=azurerm_log_analytics_workspace.principal \
-            -target=azurerm_monitor_workspace.principal \
-            -target=azurerm_container_app_environment.principal
+            -target=module.azure_platform.azurerm_resource_group.principal \
+            -target=module.azure_platform.azurerm_postgresql_flexible_server.principal \
+            -target=module.azure_platform.azurerm_postgresql_flexible_server_firewall_rule.permitir_todo \
+            -target=module.azure_platform.azurerm_servicebus_namespace.principal \
+            -target=module.azure_platform.azurerm_servicebus_queue.tareas_orquestador \
+            -target=module.azure_platform.azurerm_log_analytics_workspace.principal \
+            -target=module.azure_platform.azurerm_monitor_workspace.principal \
+            -target=module.azure_platform.azurerm_container_app_environment.principal
 
       - name: Guardar outputs de Terraform
         id: tf

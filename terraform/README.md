@@ -6,16 +6,26 @@ A diferencia de la fase 2, ya no hay conexión con las APIs de los otros equipos
 
 Esta versión tampoco usa Kubernetes: en vez de AKS, los 4 componentes corren en **Azure Container Apps**, una plataforma serverless de contenedores — no hay nodos, clúster ni manifiestos `kubectl` que administrar. El propio Terraform deja los contenedores corriendo al terminar el `apply`.
 
-## Por qué está en archivos separados (no todo en un único archivo)
+## Estructura: un módulo por nube, un archivo por servicio dentro del módulo
 
-`main.tf` es solo el punto de entrada — no declara recursos, deja a la vista el mapa de qué archivo crea cada cosa. Los recursos van repartidos uno por servicio:
+Esta carpeta sigue el mismo patrón que el ejemplo de referencia de la cátedra (root `main.tf` que invoca módulos) — con la diferencia de que, al usar una sola nube, hay **un solo módulo** (`modules/azure-platform/`) en vez de uno por proveedor. Dentro de ese módulo, los recursos siguen repartidos uno por servicio (eso no lo tiene el ejemplo de referencia, que mete todos los recursos de cada nube en un único `main.tf` por módulo).
+
+**Raíz** (`terraform/`):
+
+| Archivo | Qué hace |
+|---|---|
+| `main.tf` | Invoca `module "azure_platform"` — el único módulo de este proyecto |
+| `versions.tf` | Versión de Terraform, providers requeridos (`azurerm`, `random`), backend remoto |
+| `providers.tf` | Configuración del provider `azurerm` (separada de `versions.tf`) |
+| `variables.tf` | Variables de entrada, pasadas al módulo |
+| `outputs.tf` | Reenvía las salidas del módulo (host de Postgres, URLs públicas, etc.) |
+
+**Módulo** (`terraform/modules/azure-platform/`):
 
 | Archivo | Qué crea |
 |---|---|
-| `main.tf` | Punto de entrada — mapa de la infraestructura, sin recursos propios |
-| `versions.tf` | Versión de Terraform, providers requeridos (`azurerm`, `random`), backend remoto |
-| `providers.tf` | Configuración del provider `azurerm` (separada de `versions.tf`) |
-| `variables.tf` | Todas las variables de entrada |
+| `versions.tf` | Providers que necesita el módulo (sin backend ni bloque `provider`, eso solo va en la raíz) |
+| `variables.tf` | Variables que recibe el módulo desde la raíz |
 | `resource_group.tf` | El Resource Group |
 | `postgres.tf` | PostgreSQL Flexible Server + regla de firewall (**la base de datos**) |
 | `servicebus.tf` | El namespace de Service Bus + la cola `tareas-orquestador` |
@@ -25,7 +35,9 @@ Esta versión tampoco usa Kubernetes: en vez de AKS, los 4 componentes corren en
 | `orchestrator.tf` | El Container App del orchestrator |
 | `worker.tf` | El Container App del worker |
 | `gateway.tf` | El Container App del gateway |
-| `outputs.tf` | Valores que se necesitan después del deploy (host de Postgres, URLs públicas de api-fastify y el gateway, etc.) |
+| `outputs.tf` | Las salidas que la raíz reenvía hacia afuera |
+
+Solo manejamos un ambiente (el de la sustentación), así que no hay una carpeta `environments/` con varios `.tfvars` — un único `terraform.tfvars.example` en la raíz es suficiente.
 
 ## Requisitos previos
 
@@ -71,14 +83,14 @@ Guarda el nombre del storage account (`tfstatedevops1274` en el ejemplo) — lo 
    ```bash
    # Fase 1: todo menos los Container Apps
    terraform apply \
-     -target=azurerm_resource_group.principal \
-     -target=azurerm_postgresql_flexible_server.principal \
-     -target=azurerm_postgresql_flexible_server_firewall_rule.permitir_todo \
-     -target=azurerm_servicebus_namespace.principal \
-     -target=azurerm_servicebus_queue.tareas_orquestador \
-     -target=azurerm_log_analytics_workspace.principal \
-     -target=azurerm_monitor_workspace.principal \
-     -target=azurerm_container_app_environment.principal
+     -target=module.azure_platform.azurerm_resource_group.principal \
+     -target=module.azure_platform.azurerm_postgresql_flexible_server.principal \
+     -target=module.azure_platform.azurerm_postgresql_flexible_server_firewall_rule.permitir_todo \
+     -target=module.azure_platform.azurerm_servicebus_namespace.principal \
+     -target=module.azure_platform.azurerm_servicebus_queue.tareas_orquestador \
+     -target=module.azure_platform.azurerm_log_analytics_workspace.principal \
+     -target=module.azure_platform.azurerm_monitor_workspace.principal \
+     -target=module.azure_platform.azurerm_container_app_environment.principal
 
    # Aplica el esquema y migra los datos (ver infra/scripts/migrar-a-azure.js
    # y orchestrator/scripts/aplicar-esquema.js) usando el host que imprime:

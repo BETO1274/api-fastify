@@ -1,5 +1,5 @@
-# Observabilidad nativa del clúster: Container Insights (logs de los pods)
-# y Prometheus administrado (métricas). Se referencian desde aks.tf.
+# Observabilidad: Log Analytics (logs de los Container Apps, referenciado
+# desde container_apps_environment.tf) y Prometheus administrado (métricas).
 
 resource "random_string" "sufijo_monitoreo" {
   length  = 8
