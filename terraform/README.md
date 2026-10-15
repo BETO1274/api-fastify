@@ -6,11 +6,15 @@ A diferencia de la fase 2, ya no hay conexión con las APIs de los otros equipos
 
 Esta versión tampoco usa Kubernetes: en vez de AKS, los 4 componentes corren en **Azure Container Apps**, una plataforma serverless de contenedores — no hay nodos, clúster ni manifiestos `kubectl` que administrar. El propio Terraform deja los contenedores corriendo al terminar el `apply`.
 
-## Por qué está en archivos separados (no un único `main.tf`)
+## Por qué está en archivos separados (no todo en un único archivo)
+
+`main.tf` es solo el punto de entrada — no declara recursos, deja a la vista el mapa de qué archivo crea cada cosa. Los recursos van repartidos uno por servicio:
 
 | Archivo | Qué crea |
 |---|---|
-| `versions.tf` | Versión de Terraform, providers (`azurerm`, `random`) |
+| `main.tf` | Punto de entrada — mapa de la infraestructura, sin recursos propios |
+| `versions.tf` | Versión de Terraform, providers requeridos (`azurerm`, `random`), backend remoto |
+| `providers.tf` | Configuración del provider `azurerm` (separada de `versions.tf`) |
 | `variables.tf` | Todas las variables de entrada |
 | `resource_group.tf` | El Resource Group |
 | `postgres.tf` | PostgreSQL Flexible Server + regla de firewall (**la base de datos**) |
