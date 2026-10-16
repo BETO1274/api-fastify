@@ -105,7 +105,17 @@ Guarda el nombre del storage account (`tfstatedevops1274` en el ejemplo) — lo 
 
 ## Pipeline automatizado
 
-`.github/workflows/terraform-deploy.yml` corre el `apply` en dos fases descrito arriba, migra la base de datos entre medio, y deja los 4 Container Apps corriendo — todo en un solo flujo manual (`workflow_dispatch`), para no desplegar infraestructura por accidente en cada push. Requiere estos secrets configurados en el repo (Settings → Secrets and variables → Actions):
+`.github/workflows/terraform-deploy.yml` corre el `apply` en dos fases descrito arriba, migra la base de datos entre medio, y deja los 4 Container Apps corriendo — todo en un solo flujo manual (`workflow_dispatch`), para no desplegar infraestructura por accidente en cada push. Se dispara desde la pestaña Actions de GitHub con **Run workflow**, o por consola con `gh` (requiere estar logueado como alguien con permiso de escritura en el repo):
+
+```bash
+gh workflow run terraform-deploy.yml --repo BETO1274/api-fastify --ref produccion
+
+# Para seguirlo en vivo desde la terminal:
+gh run list --branch produccion --limit 1       # anota el run id de la columna de la derecha
+gh run watch <run-id> --exit-status
+```
+
+Requiere estos secrets configurados en el repo (Settings → Secrets and variables → Actions):
 
 * `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID` — credenciales de un Service Principal con permiso `Contributor` sobre la suscripción:
   ```bash
@@ -150,7 +160,13 @@ Pide confirmación (`yes`) antes de borrar. Esto elimina **todo** lo que creó e
 
 No hay pérdida real de datos: la copia de la base de datos sigue intacta en Supabase Producción, y `infra/scripts/migrar-a-azure.js` la vuelve a traer completa la próxima vez que se despliegue.
 
-Para destruirlo sin tener la carpeta a mano (por ejemplo, justo después de la sustentación, desde cualquier máquina), el pipeline también expone un job de destrucción manual — ver `.github/workflows/terraform-destroy.yml`, se dispara desde la pestaña Actions de GitHub con **Run workflow**.
+Para destruirlo sin tener la carpeta a mano (por ejemplo, justo después de la sustentación, desde cualquier máquina), el pipeline también expone un job de destrucción manual — ver `.github/workflows/terraform-destroy.yml`, se dispara desde la pestaña Actions de GitHub con **Run workflow**, o por consola:
+
+```bash
+gh workflow run terraform-destroy.yml --repo BETO1274/api-fastify --ref produccion -f confirmar=destruir
+```
+
+El input `confirmar` es obligatorio y debe decir exactamente `destruir` — es el seguro contra disparos accidentales (`if: github.event.inputs.confirmar == 'destruir'` en el workflow).
 
 ## Diferencias vs. el Bicep de la fase 2
 
