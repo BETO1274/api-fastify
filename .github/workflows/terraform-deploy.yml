@@ -17,6 +17,15 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+    # El backend "azurerm" (use_azuread_auth=true) y el provider autentican
+    # con estas variables ARM_* directamente - no con la sesión de Azure CLI
+    # que deja azure/login@v2, porque esa sesión es de un Service Principal
+    # y el backend solo acepta CLI auth para cuentas de usuario.
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -30,11 +39,6 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: '1.9.8'
-
-      - name: Login en Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Terraform init
         run: |

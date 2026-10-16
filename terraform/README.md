@@ -107,12 +107,19 @@ Guarda el nombre del storage account (`tfstatedevops1274` en el ejemplo) — lo 
 
 `.github/workflows/terraform-deploy.yml` corre el `apply` en dos fases descrito arriba, migra la base de datos entre medio, y deja los 4 Container Apps corriendo — todo en un solo flujo manual (`workflow_dispatch`), para no desplegar infraestructura por accidente en cada push. Requiere estos secrets configurados en el repo (Settings → Secrets and variables → Actions):
 
-* `AZURE_CREDENTIALS` — credenciales de un Service Principal con permiso sobre la suscripción, en formato `--sdk-auth`:
+* `ARM_CLIENT_ID`, `ARM_CLIENT_SECRET`, `ARM_TENANT_ID`, `ARM_SUBSCRIPTION_ID` — credenciales de un Service Principal con permiso `Contributor` sobre la suscripción:
   ```bash
   az ad sp create-for-rbac --name sp-terraform-devops --role Contributor \
-    --scopes /subscriptions/<TU_SUBSCRIPTION_ID> --sdk-auth
+    --scopes /subscriptions/<TU_SUBSCRIPTION_ID>
   ```
-  El JSON completo que imprime ese comando es el valor del secret.
+  El comando imprime `appId` (→ `ARM_CLIENT_ID`), `password` (→ `ARM_CLIENT_SECRET`) y `tenant` (→ `ARM_TENANT_ID`); `ARM_SUBSCRIPTION_ID` es tu subscription id. El backend `azurerm` (con `use_azuread_auth=true`) y el provider autentican con estas 4 variables directamente — **no** uses `azure/login@v2` ni un secret `AZURE_CREDENTIALS` de tipo `--sdk-auth`, porque esa sesión de Azure CLI queda como Service Principal y el backend de Terraform solo acepta autenticación CLI para cuentas de usuario, no para Service Principals (falla con "Authenticating using the Azure CLI is only supported as a User").
+  Además, el Service Principal necesita el rol `Storage Blob Data Contributor` sobre el storage account del estado remoto (el de "Estado remoto" arriba), para poder leer/escribir el `.tfstate`:
+  ```bash
+  az role assignment create --assignee-object-id <object-id-del-SP> \
+    --assignee-principal-type ServicePrincipal \
+    --role "Storage Blob Data Contributor" \
+    --scope /subscriptions/<TU_SUBSCRIPTION_ID>/resourceGroups/DEVOPS-tfstate/providers/Microsoft.Storage/storageAccounts/tfstatedevops1274
+  ```
 * `POSTGRES_ADMIN_PASSWORD` — la contraseña de PostgreSQL.
 * `TEAM_API_KEY` — la key compartida que ya usan el gateway y el orquestador.
 * `MIGRATION_DB_URL_PROD` — connection string de Supabase Producción (de donde se copian los datos reales), el mismo que ya usa `pipeline-produccion.yml`.
