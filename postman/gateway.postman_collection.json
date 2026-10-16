@@ -233,7 +233,7 @@
         {
           "name": "3.1 - Crear tarea: QUERY search - articulos",
           "request": {
-            "method": "QUERY",
+            "method": "POST",
             "header": [
               {
                 "key": "X-Api-Key",
@@ -242,6 +242,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
               }
             ],
             "url": {
@@ -390,7 +394,7 @@
         {
           "name": "5.1 - Crear tarea: QUERY search - stock",
           "request": {
-            "method": "QUERY",
+            "method": "POST",
             "header": [
               {
                 "key": "X-Api-Key",
@@ -399,6 +403,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
               }
             ],
             "url": {
@@ -547,7 +555,7 @@
         {
           "name": "7.1 - Crear tarea: QUERY search - recetas",
           "request": {
-            "method": "QUERY",
+            "method": "POST",
             "header": [
               {
                 "key": "X-Api-Key",
@@ -556,6 +564,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
               }
             ],
             "url": {
@@ -704,7 +716,7 @@
         {
           "name": "9.1 - Crear tarea: QUERY search - fabricaciones",
           "request": {
-            "method": "QUERY",
+            "method": "POST",
             "header": [
               {
                 "key": "X-Api-Key",
@@ -713,6 +725,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
               }
             ],
             "url": {
@@ -2250,7 +2266,7 @@
         {
           "name": "6.1 - Crear tarea: QUERY search - inventario/query",
           "request": {
-            "method": "QUERY",
+            "method": "POST",
             "header": [
               {
                 "key": "X-Api-Key",
@@ -2259,6 +2275,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
               }
             ],
             "url": {

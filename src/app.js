@@ -1,3 +1,4 @@
+import http from 'node:http'
 import Fastify from 'fastify'
 import fastifyHttpQuery from '@thecodepace/fastify-http-query'
 import swagger from '@fastify/swagger'
@@ -10,7 +11,19 @@ import v2Routes from './versions/v2.js'
 
 export function buildApp() {
   const app = Fastify({
-    logger: true
+    logger: true,
+    // Azure Container Apps bloquea el verbo QUERY en su ingress antes de
+    // que la petición llegue aquí (incluso en tráfico interno entre
+    // Container Apps). El cliente/dispatcher lo manda como POST con este
+    // header; se restaura el método real antes de que Fastify enrute -
+    // tiene que pasar por aquí, un hook (onRequest) corre después de que
+    // Fastify ya decidió la ruta por el método original.
+    serverFactory: (handler) => http.createServer((req, res) => {
+      if (req.method === 'POST' && req.headers['x-http-method-override']?.toUpperCase() === 'QUERY') {
+        req.method = 'QUERY'
+      }
+      handler(req, res)
+    })
   })
 
   app.register(fastifyHttpQuery)

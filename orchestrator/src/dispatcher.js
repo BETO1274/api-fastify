@@ -24,7 +24,14 @@ export async function despachar({ servicio, metodo, ruta, body, traceId }) {
   if (traceId) headers['X-Trace-Id'] = traceId
   if (process.env.TEAM_API_KEY) headers['X-Api-Key'] = process.env.TEAM_API_KEY
 
-  const opciones = { method: metodo, headers }
+  // Azure Container Apps bloquea en su ingress el verbo QUERY (no estándar)
+  // antes de que la petición llegue al contenedor - incluso en tráfico
+  // interno entre Container Apps. Se manda como POST con este header, y
+  // api-fastify restaura el método real antes de enrutar (ver app.js).
+  const metodoReal = metodo === 'QUERY' ? 'POST' : metodo
+  if (metodo === 'QUERY') headers['X-HTTP-Method-Override'] = 'QUERY'
+
+  const opciones = { method: metodoReal, headers }
   // Content-Type solo cuando de verdad hay body: mandarlo en una petición
   // vacía (GET/DELETE típicamente) hace que Fastify del otro lado la
   // rechace con 400 "el body no puede estar vacío si dice ser JSON".

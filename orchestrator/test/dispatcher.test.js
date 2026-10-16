@@ -14,7 +14,8 @@ beforeAll(async () => {
       url: req.url,
       traceId: req.headers['x-trace-id'],
       apiKey: req.headers['x-api-key'],
-      contentType: req.headers['content-type']
+      contentType: req.headers['content-type'],
+      metodoOverride: req.headers['x-http-method-override']
     })
     res.setHeader('content-type', 'application/json')
     res.end(JSON.stringify({ ok: true }))
@@ -92,6 +93,26 @@ describe('despachar', () => {
 
     await despachar({ servicio: 'api_fastify', metodo: 'POST', ruta: '/articulos', body: { nombre: 'x' }, traceId: 'x' })
 
+    expect(recibidas[0].contentType).toBe('application/json')
+  })
+
+  // Azure Container Apps bloquea QUERY en su ingress antes de que la
+  // petición llegue al contenedor, incluso en tráfico interno. Se manda
+  // como POST con X-HTTP-Method-Override: QUERY; api-fastify restaura el
+  // método real (ver src/app.js).
+  it('manda QUERY como POST con el header X-HTTP-Method-Override', async () => {
+    process.env.API_FASTIFY_URL = `http://127.0.0.1:${servidor.address().port}`
+
+    await despachar({
+      servicio: 'api_fastify',
+      metodo: 'QUERY',
+      ruta: '/articulos/search',
+      body: { filtros: { tipo: 'materia_prima' } },
+      traceId: 'x'
+    })
+
+    expect(recibidas[0].metodo).toBe('POST')
+    expect(recibidas[0].metodoOverride).toBe('QUERY')
     expect(recibidas[0].contentType).toBe('application/json')
   })
 
