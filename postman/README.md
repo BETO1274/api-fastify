@@ -1,58 +1,34 @@
-# Colección de Postman — api-fastify
+# Colección de Postman — Gateway (v3)
 
-Suite de validación end-to-end contra los ambientes reales (Test, Producción y Local).
+Suite de validación end-to-end contra el sistema v3 completo: **Gateway → Orquestador → Service Bus → Worker → api-fastify**. Flujo asíncrono: cada request de creación devuelve `202` con un `id` de tarea, y el request siguiente (`.2`) consulta el resultado con `GET /orquestar/:id`.
 
 ## Archivos
 
-* `api-fastify.postman_collection.json` — la colección (32 requests: CRUD + QUERY + casos 400/404 + validación numérica de la regla de negocio de `fabricacion`), contra `api-fastify` directo (v1/v2).
-* `api-fastify-test.postman_environment.json` — `base_url` → Test (público, vía Render).
-* `api-fastify-produccion.postman_environment.json` — `base_url` → Producción (público, vía Render).
-* `api-fastify-local.postman_environment.json` — `base_url` → `http://localhost:3000` (servidor corriendo en tu máquina con `npm run dev`, conectado a la BD real de Supabase Test). Útil para demostrar que `QUERY` funciona sin la restricción de Cloudflare.
-* `api-fastify-aks.postman_environment.json` — `base_url` → api-fastify directo en el clúster AKS (fase 2, multicloud). ⚠️ **La IP pública no es fija**: si se borra y recrea el `Service` de Kubernetes, cambia. Verifica con `kubectl get service -n api-fastify` y actualiza el valor de `base_url` en este archivo si ya no responde.
-* `gateway.postman_collection.json` — colección aparte, contra el **gateway** (flujo multicloud asíncrono: `POST /orquestar` → `202` con `tarea_id` → `GET /orquestar/:id` para el resultado). Cubre las 3 APIs del equipo (`api_fastify`, `deportback`, `inventario_u`), incluida una demostración de cache-hit contra deportBack. Correrla con **Collection Runner** y un Delay de ≥2000ms entre requests (el flujo es asíncrono).
-* `gateway.postman_environment.json` — `base_url` → IP pública del `Service` `gateway` en AKS. Misma advertencia de IP no fija que el de arriba — verificar con `kubectl get service gateway -n orchestrator`.
-
-## Variable `team_api_key` (rutas `/api/v2/*`)
-
-Los 4 environments incluyen la variable `team_api_key`, **vacía a propósito** — nunca se commitea el valor real. Si el ambiente que estás probando tiene `TEAM_API_KEY` configurada del lado del servidor (por ahora, solo AKS), las rutas `/api/v2/*` responden 401 hasta que la completes:
-
-1. En Postman, abre el Environment correspondiente (ícono del ojo, arriba a la derecha).
-2. En `team_api_key`, pega el valor real (lo tienes en `credentials.local.md`, sección `TEAM_API_KEY`).
-3. Guarda — Postman guarda el valor solo en tu instalación local, no lo exporta a menos que tú mismo vuelvas a exportar el archivo (en cuyo caso, revisa antes de comitear que no quedó el valor real adentro).
+* `gateway.postman_collection.json` — la colección (38 requests, 59 assertions): salud/seguridad, CRUD directo de las 4 entidades propias (`articulos`, `stock`, `recetas`, `fabricaciones`), el envelope v2 (degrada con gracia sin las APIs de los otros equipos, que v3 ya no usa) y los 6 verbos completos creando/borrando su propio dato.
+* `gateway.postman_environment.json` — environment versionado, con `base_url` y `team_api_key` vacíos (plantilla, nunca lleva valores reales).
+* `gateway.local.postman_environment.json` — **gitignorado**, con los valores reales (`base_url` del deploy actual en Azure Container Apps + la `team_api_key` real de `credentials.local.md`). Cópialo desde el versionado si no lo tienes:
+  ```bash
+  cp postman/gateway.postman_environment.json postman/gateway.local.postman_environment.json
+  ```
+  y completa ahí `base_url` (con `terraform output -raw gateway_url`, ver `terraform/README.md`) y `team_api_key`.
 
 ## Cómo correrla
 
-1. Importar los 4 archivos en Postman (o usar `newman`, ver abajo).
-2. Seleccionar el Environment correspondiente.
-3. Ejecutar con **Collection Runner**, en orden (de arriba hacia abajo) — los requests de creación guardan el ID en variables de colección que usan los requests siguientes.
-
-### Variables de colección (`articulo_insumo_id`, `receta_id`, etc.)
-
-Estas variables se rellenan automáticamente cuando corres la colección completa por el **Collection Runner**: el request "POST crear articulo" guarda el id que crea, y los requests siguientes lo reutilizan.
-
-Si en cambio abres y mandas **un request suelto** (sin haber corrido antes el que crea el dato), esas variables tienen un valor por defecto: apuntan a los **datos de demo sembrados en Test** (Harina de trigo, Pastel de vainilla, su receta y una fabricación ya ejecutada — ver la sección de datos de demo más abajo). Así cualquier `GET`/`PATCH`/`QUERY` individual funciona apenas lo abras.
-
-⚠️ **Cuidado con los requests `DELETE` sueltos**: si los mandas individualmente usando esos valores por defecto, vas a borrar los datos de demo reales, no datos descartables. Los `DELETE` son seguros solo dentro de una corrida completa del Runner (crean su propio dato desechable y lo borran al final) — para probar un `DELETE` suelto sin arriesgar la demo, cambia primero la variable a un id que no te importe perder.
+1. Importa `gateway.postman_collection.json` y el environment `gateway.local.postman_environment.json` en Postman (o usa `newman`, ver abajo).
+2. Selecciona ese environment.
+3. Ejecuta con **Collection Runner**, en orden (de arriba hacia abajo) — los requests `.1` (crear tarea) guardan el `tarea_id` que usa el `.2` siguiente (consultar resultado). Deja un pequeño delay entre requests si corres manualmente uno por uno; el Runner y `newman` ya esperan la respuesta de cada paso antes de seguir.
 
 Con `newman` (CLI, no requiere abrir Postman):
 ```bash
-npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-test.postman_environment.json
-npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-produccion.postman_environment.json
-npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-local.postman_environment.json  # requiere `npm run dev` corriendo
-npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-aks.postman_environment.json
-
-# Gateway (flujo multicloud) — usar --delay-request para no adelantarse al worker
-npx newman run postman/gateway.postman_collection.json -e postman/gateway.postman_environment.json --delay-request 2000
+npx newman run postman/gateway.postman_collection.json -e postman/gateway.local.postman_environment.json
 ```
+
+## Variable `team_api_key`
+
+El gateway exige el header `X-Api-Key` en todo lo que no sea `/health` — sin la key correcta, responde `401`. El valor real está en `credentials.local.md`, sección `TEAM_API_KEY`; solo va en el environment `.local` (gitignorado), nunca en el versionado.
 
 ## ⚠️ Nota sobre el verbo QUERY
 
-Las URLs públicas de Render (`*.onrender.com`) pasan por **Cloudflare**, que bloquea en el borde el método HTTP `QUERY` (no estándar) antes de que llegue a la aplicación — responde `405 Method Not Allowed` con el header `Server: cloudflare`. **No es un bug del código**: `QUERY` está implementado correctamente y probado en la suite automatizada (`fastify.inject()`, sin pasar por Cloudflare) y en el smoke test del pipeline (habla directo con el contenedor). Es una limitación de la capa gratuita de infraestructura de Render, fuera de nuestro control.
+Azure Container Apps bloquea en su ingress (basado en Envoy) el método HTTP `QUERY` (no estándar) antes de que la petición llegue al contenedor — incluso en tráfico interno entre Container Apps. No es un bug de la implementación: `QUERY` está correctamente soportado por Fastify (`fastify.query()`), probado en la suite automatizada (`fastify.inject()`, que no pasa por ningún proxy) y funcionaba sin problema en AKS (fase 2).
 
-Los requests `QUERY` de esta colección detectan ese bloqueo específico (405 + `Server: cloudflare`) y lo reportan como un test informativo en vez de un fallo — así la corrida completa siempre queda en verde, distinguiendo claramente "esto no se pudo probar por la plataforma" de "esto está roto".
-
-Como efecto colateral, el paso de limpieza que borra el stock generado por `fabricacion` (que depende de `QUERY /stock/search` para encontrar la fila) tampoco puede autolimpiarse contra las URLs públicas — queda documentado en el propio test, y se puede borrar a mano desde el Table Editor de Supabase si hace falta.
-
-**Contra `Local`, en cambio, `QUERY` funciona normal** (no hay Cloudflare de por medio) — la corrida completa contra `localhost` pasa las 49 assertions sin ningún bloqueo ni limpieza pendiente, confirmando que la implementación de `QUERY` es correcta y el único problema es la capa de infraestructura de Render.
-
-**Contra `AKS`, `QUERY` también funciona normal** — el Load Balancer de Azure no bloquea métodos HTTP no estándar como sí lo hace Cloudflare frente a Render.
+El workaround, ya aplicado en el código y en esta colección: los requests `QUERY` se mandan como **`POST` con el header `X-HTTP-Method-Override: QUERY`**. Tanto `api-fastify` como el `gateway` (y el `dispatcher` del orquestador, en el salto interno hacia `api-fastify`) restauran el método real antes de enrutar — ver `src/app.js`, `gateway/src/app.js` y `orchestrator/src/dispatcher.js`. Si armas un request `QUERY` nuevo a mano en Postman, usa este mismo patrón (método `POST` + ese header) en vez del verbo `QUERY` directo, o Azure lo va a rechazar con `400 Bad Request` en texto plano antes de llegar a la app.

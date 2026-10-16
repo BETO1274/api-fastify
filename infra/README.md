@@ -1,8 +1,10 @@
 # Infraestructura como código (Bicep)
 
+> **Obsoleto desde v3.** Este Bicep despliega la infraestructura de la fase 2 (AKS + 3 APIs + Cache/Storage de los otros equipos). A partir de v3 el sistema ya no usa Kubernetes y la infraestructura se maneja con Terraform, ver [`terraform/README.md`](../terraform/README.md). Se conserva como referencia histórica, no como el flujo de despliegue vigente.
+
 Este archivo (`main.bicep`) recrea la infraestructura de Azure que usamos para la fase 2 (multicloud): el servidor de PostgreSQL (tier gratis), el clúster AKS con monitoreo nativo (Container Insights + Prometheus administrado) y el namespace de Azure Service Bus con la cola `tareas-orquestador` (tier Basic, con dead-letter queue).
 
-No incluye una IP pública fija — al recrear el clúster, el `Service` de Kubernetes obtiene una IP nueva. Hay que actualizar `postman/api-fastify-aks.postman_environment.json` y avisarle al equipo cuando eso pase.
+No incluye una IP pública fija — al recrear el clúster, el `Service` de Kubernetes obtiene una IP nueva (en su momento había que actualizar un environment de Postman apuntando a esa IP; en v3 ya no existe ese archivo).
 
 ## Requisitos
 
@@ -50,7 +52,7 @@ npm run db:init
 * Gateway: sigue `k8s/gateway/README.md` (depende del mismo namespace y configmap del orquestador).
 
 **Paso 4 — Actualizar lo que cambió:**
-* La IP pública del nuevo `Service` de la API es distinta — actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/api-fastify-aks.local.postman_environment.json`.
+* La IP pública del nuevo `Service` de la API es distinta (en v3 ya no hay un environment de Postman dedicado a esto — solo queda `postman/gateway.local.postman_environment.json`).
 * El `Service` `gateway` también recibe una IP pública nueva: esa es la que hay que pasarle al equipo como punto de entrada.
 * Avisa al equipo la IP nueva si la estaban usando.
 

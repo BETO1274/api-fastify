@@ -156,5 +156,5 @@ Para destruirlo sin tener la carpeta a mano (por ejemplo, justo después de la s
 
 * Este Terraform **crea** el Resource Group (el Bicep asumía que ya existía). Ciclo de vida más simple: `apply` lo crea todo, `destroy` lo borra todo.
 * Ya no usa Kubernetes: en vez de AKS corre en Azure Container Apps, así que no hay clúster, nodos ni manifiestos `kubectl` — los secrets `AKS_*` y la carpeta `k8s/` quedaron obsoletos para este despliegue.
-* La URL pública cambia con cada recreación (el FQDN del Container App es distinto cada vez). Actualiza `postman/api-fastify-aks.postman_environment.json` y `postman/gateway.postman_environment.json` con los valores de `terraform output api_fastify_url` / `gateway_url` después de cada despliegue.
+* La URL pública cambia con cada recreación (el FQDN del Container App es distinto cada vez). Actualiza `postman/gateway.local.postman_environment.json` con el valor de `terraform output -raw gateway_url` después de cada despliegue.
 * No declara las 29+ reglas de alerta recomendadas que sugiere el asistente del portal — si se quieren, se agregan a mano después del despliegue, igual que en la fase 2.

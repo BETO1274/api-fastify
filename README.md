@@ -262,23 +262,22 @@ npm run test:coverage # con reporte de cobertura
 ```
 48 pruebas de integración (sin mocks, `fastify.inject()` contra la BD real): CRUD completo, `QUERY`, 400 de validación, violaciones de FK, 404, y la verificación numérica exacta de la regla de negocio de `fabricacion`.
 
-### Colección de Postman (contra los ambientes reales, vía HTTP)
+### Colección de Postman (contra el sistema v3 real en Azure, vía HTTP)
 Ubicada en [`postman/`](postman/):
 ```
 postman/
-├── README.md                                     ← explica el hallazgo de Cloudflare (ver abajo)
-├── api-fastify.postman_collection.json           ← 32 requests
-├── api-fastify-test.postman_environment.json
-└── api-fastify-produccion.postman_environment.json
+├── README.md                                 ← explica el workaround de QUERY (ver abajo)
+├── gateway.postman_collection.json           ← 38 requests, flujo asíncrono completo
+├── gateway.postman_environment.json          ← plantilla versionada (sin valores reales)
+└── gateway.local.postman_environment.json    ← gitignorado, con la URL y la key reales
 ```
 
-Importar los 3 archivos en Postman, o correr con `newman`:
+Importar en Postman, o correr con `newman`:
 ```bash
-npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-test.postman_environment.json
-npx newman run postman/api-fastify.postman_collection.json -e postman/api-fastify-produccion.postman_environment.json
+npx newman run postman/gateway.postman_collection.json -e postman/gateway.local.postman_environment.json
 ```
 
-> **Nota:** las URLs públicas de Render pasan por Cloudflare, que bloquea en el borde el método `QUERY` (no estándar) antes de llegar a la aplicación — responde `405` con header `Server: cloudflare`. No es un bug del código: `QUERY` está implementado y probado en la suite automatizada (que no pasa por Cloudflare). La colección de Postman detecta ese bloqueo específico y lo reporta como informativo. Detalle completo en [`postman/README.md`](postman/README.md).
+> **Nota:** Azure Container Apps bloquea en su ingress el método `QUERY` (no estándar) antes de llegar al contenedor. No es un bug del código: `QUERY` está implementado y probado en la suite automatizada (que no pasa por ningún proxy) y funcionaba sin problema en AKS (fase 2). El workaround — mandar `POST` con el header `X-HTTP-Method-Override: QUERY` — ya está aplicado en el código y en esta colección. Detalle completo en [`postman/README.md`](postman/README.md).
 
 ---
 
