@@ -124,8 +124,9 @@ Guarda el nombre del storage account (`tfstatedevops1274` en el ejemplo) — lo 
 * `TEAM_API_KEY` — la key compartida que ya usan el gateway y el orquestador.
 * `MIGRATION_DB_URL_PROD` — connection string de Supabase Producción (de donde se copian los datos reales), el mismo que ya usa `pipeline-produccion.yml`.
 * `TF_STATE_RESOURCE_GROUP`, `TF_STATE_STORAGE_ACCOUNT`, `TF_STATE_CONTAINER` — los 3 valores del storage account que creaste en "Estado remoto" arriba.
+* `GHCR_READ_TOKEN` — un token con scope `read:packages` sobre `BETO1274/api-fastify`, para que los Container Apps puedan hacer pull de las imágenes privadas de ghcr.io.
 
-El `GITHUB_TOKEN` que ya provee Actions automáticamente se reutiliza como `ghcr_token` para que los Container Apps puedan hacer pull de las imágenes privadas de ghcr.io — no hace falta un Personal Access Token aparte para esto.
+  **No uses `secrets.GITHUB_TOKEN` para esto** — es el error que se cometió en el primer despliegue real: `GITHUB_TOKEN` es efímero (solo vive durante la ejecución del workflow), así que el Container App queda con un secret `ghcr-token` que expira en cuanto termina el pipeline, y la próxima vez que intenta reiniciar o crear una revisión, falla con `ImagePullBackOff`. `GHCR_READ_TOKEN` debe ser un token de larga duración (un PAT clásico con `read:packages`, o el token de `gh auth token` después de `gh auth refresh -s read:packages`).
 
 ## Destruir (al terminar la sustentación)
 

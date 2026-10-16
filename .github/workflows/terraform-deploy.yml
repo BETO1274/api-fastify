@@ -59,7 +59,7 @@ jobs:
         run: |
           terraform apply -auto-approve \
             -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
-            -var="ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -var="ghcr_token=${{ secrets.GHCR_READ_TOKEN }}" \
             -var="team_api_key=${{ secrets.TEAM_API_KEY }}" \
             -target=module.azure_platform.azurerm_resource_group.principal \
             -target=module.azure_platform.azurerm_postgresql_flexible_server.principal \
@@ -101,7 +101,7 @@ jobs:
         run: |
           terraform apply -auto-approve \
             -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
-            -var="ghcr_token=${{ secrets.GITHUB_TOKEN }}" \
+            -var="ghcr_token=${{ secrets.GHCR_READ_TOKEN }}" \
             -var="team_api_key=${{ secrets.TEAM_API_KEY }}"
 
       - name: Mostrar las URLs públicas
