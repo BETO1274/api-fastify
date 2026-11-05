@@ -1,0 +1,95 @@
+name: Release y despliegue en Render
+
+# Un tag vX.Y.Z construye una imagen INMUTABLE (se despliega por digest SHA256)
+# y la despliega automaticamente en Render:
+#   v3.*  -> servicio STABLE  (api v3, linea base)
+#   v4.*  -> servicio CANARY  (api v4, con el cambio Expand/Contract)
+# Tambien se puede lanzar a mano indicando un tag existente.
+
+on:
+  push:
+    tags: ['v3.*', 'v4.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag existente a desplegar (ej. v3.0.1)'
+        required: true
+
+permissions:
+  contents: write   # crear el GitHub Release
+  packages: write   # publicar en ghcr.io
+
+env:
+  IMAGEN: ghcr.io/beto1274/api-fastify
+
+jobs:
+  release:
+    name: Build, publicar y desplegar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolver tag y track
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          case "$TAG" in
+            v3.*) TRACK=stable ;;
+            v4.*) TRACK=canary ;;
+            *) echo "Tag $TAG no corresponde a v3.* ni v4.*"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "track=$TRACK" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Instalar dependencias y lint
+        run: |
+          npm ci
+          npm run lint
+
+      - name: Login en ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build y push de la imagen
+        id: imagen
+        run: |
+          docker build \
+            --build-arg APP_VERSION=${{ steps.meta.outputs.version }} \
+            --build-arg APP_TRACK=${{ steps.meta.outputs.track }} \
+            -t $IMAGEN:${{ steps.meta.outputs.tag }} .
+          docker push $IMAGEN:${{ steps.meta.outputs.tag }}
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGEN:${{ steps.meta.outputs.tag }})
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Imagen inmutable: $DIGEST"
+
+      - name: Desplegar en Render (por digest)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          if [ "${{ steps.meta.outputs.track }}" = "stable" ]; then
+            SERVICE_ID="${{ secrets.RENDER_SERVICE_ID_STABLE }}"
+          else
+            SERVICE_ID="${{ secrets.RENDER_SERVICE_ID_CANARY }}"
+          fi
+          curl --fail-with-body -sS -X POST \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"imageUrl\": \"${{ steps.imagen.outputs.digest }}\"}"
+
+      - name: Crear GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ steps.meta.outputs.tag }} \
+            --title "${{ steps.meta.outputs.tag }} (${{ steps.meta.outputs.track }})" \
+            --notes "Imagen: \`${{ steps.imagen.outputs.digest }}\`" \
+            --verify-tag
