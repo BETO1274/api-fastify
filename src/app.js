@@ -8,6 +8,7 @@ import stockRoutes from './modules/stock/stock.routes.js'
 import recetaRoutes from './modules/receta/receta.routes.js'
 import fabricacionRoutes from './modules/fabricacion/fabricacion.routes.js'
 import v2Routes from './versions/v2.js'
+import { instrumentar } from './common/metricas.js'
 
 export function buildApp() {
   const app = Fastify({
@@ -33,6 +34,8 @@ export function buildApp() {
     reply.header('X-App-Version', process.env.APP_VERSION || 'dev')
     reply.header('X-Track', process.env.APP_TRACK || 'stable')
   })
+
+  instrumentar(app)
 
   // No depende de la base de datos: usado como liveness/readiness probe en
   // Kubernetes, para que el Pod no se marque como no-saludable solo porque

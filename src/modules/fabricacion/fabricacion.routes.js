@@ -1,3 +1,4 @@
+import { fabricacionesRegistradas } from '../../common/metricas.js'
 import { Type } from '@sinclair/typebox'
 import { FabricacionParams, FabricacionBody, FabricacionBodyParcial, FabricacionQueryBody, FabricacionResponse } from './fabricacion.schema.js'
 import { crearFabricacion, obtenerFabricacionPorId, actualizarFabricacion, eliminarFabricacion, buscarFabricaciones } from './fabricacion.controller.js'
@@ -8,6 +9,7 @@ export default async function fabricacionRoutes(fastify) {
   }, async (request, reply) => {
     try {
       const fabricacion = await crearFabricacion(request.body)
+      fabricacionesRegistradas.inc()
       reply.code(201)
       return fabricacion
     } catch (error) {

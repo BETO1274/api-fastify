@@ -23,4 +23,14 @@ describe('health check', () => {
     expect(respuesta.headers['x-app-version']).toBeDefined()
     expect(['stable', 'canary']).toContain(respuesta.headers['x-track'])
   })
+
+  it('GET /metrics expone metricas con etiquetas version y track', async () => {
+    await app.inject({ method: 'GET', url: '/ruta-inexistente' })
+    const respuesta = await app.inject({ method: 'GET', url: '/metrics' })
+
+    expect(respuesta.statusCode).toBe(200)
+    expect(respuesta.body).toContain('http_requests_total')
+    expect(respuesta.body).toContain('http_request_duration_seconds_bucket')
+    expect(respuesta.body).toMatch(/track="stable"/)
+  })
 })

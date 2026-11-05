@@ -13,12 +13,14 @@ import {
   eliminarArticulo,
   buscarArticulos
 } from './articulo.controller.js'
+import { articulosCreados } from '../../common/metricas.js'
 
 export default async function articuloRoutes(fastify) {
   fastify.post('/', {
     schema: { body: ArticuloBody, response: { 201: ArticuloResponse } }
   }, async (request, reply) => {
     const articulo = await crearArticulo(request.body)
+    articulosCreados.inc()
     reply.code(201)
     return articulo
   })
