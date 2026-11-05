@@ -7,7 +7,8 @@ export const ArticuloParams = Type.Object({
 export const ArticuloBody = Type.Object({
   nombre: Type.String({ minLength: 1 }),
   tipo: Type.Union([Type.Literal('materia_prima'), Type.Literal('producto_final')]),
-  unidad_medida: Type.String({ minLength: 1 })
+  unidad_medida: Type.String({ minLength: 1 }),
+  categoria: Type.Optional(Type.String({ minLength: 1 }))
 })
 
 export const ArticuloBodyParcial = Type.Partial(ArticuloBody)
@@ -15,7 +16,8 @@ export const ArticuloBodyParcial = Type.Partial(ArticuloBody)
 export const ArticuloQueryBody = Type.Object({
   nombre: Type.Optional(Type.String()),
   tipo: Type.Optional(Type.Union([Type.Literal('materia_prima'), Type.Literal('producto_final')])),
-  unidad_medida: Type.Optional(Type.String())
+  unidad_medida: Type.Optional(Type.String()),
+  categoria: Type.Optional(Type.String())
 })
 
 export const ArticuloResponse = Type.Object({
@@ -23,6 +25,7 @@ export const ArticuloResponse = Type.Object({
   nombre: Type.String(),
   tipo: Type.String(),
   unidad_medida: Type.String(),
+  categoria: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   creado_en: Type.String(),
   actualizado_en: Type.String()
 })

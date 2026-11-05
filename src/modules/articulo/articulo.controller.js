@@ -1,11 +1,11 @@
 import { pool } from '../../config/db.js'
 
-export async function crearArticulo({ nombre, tipo, unidad_medida }) {
+export async function crearArticulo({ nombre, tipo, unidad_medida, categoria = null }) {
   const { rows } = await pool.query(
-    `insert into articulo (nombre, tipo, unidad_medida)
-     values ($1, $2, $3)
+    `insert into articulo (nombre, tipo, unidad_medida, categoria)
+     values ($1, $2, $3, $4)
      returning *`,
-    [nombre, tipo, unidad_medida]
+    [nombre, tipo, unidad_medida, categoria]
   )
   return rows[0]
 }
@@ -39,7 +39,7 @@ export async function eliminarArticulo(id) {
   return rows[0] ?? null
 }
 
-export async function buscarArticulos({ nombre, tipo, unidad_medida }) {
+export async function buscarArticulos({ nombre, tipo, unidad_medida, categoria }) {
   const condiciones = []
   const valores = []
 
@@ -54,6 +54,11 @@ export async function buscarArticulos({ nombre, tipo, unidad_medida }) {
   if (unidad_medida) {
     valores.push(unidad_medida)
     condiciones.push(`unidad_medida = $${valores.length}`)
+  }
+
+  if (categoria) {
+    valores.push(categoria)
+    condiciones.push(`categoria = $${valores.length}`)
   }
 
   const whereClause = condiciones.length > 0 ? `where ${condiciones.join(' and ')}` : ''
