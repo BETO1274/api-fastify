@@ -16,4 +16,11 @@ describe('health check', () => {
     expect(respuesta.statusCode).toBe(200)
     expect(respuesta.json()).toEqual({ status: 'ok' })
   })
+
+  it('responde X-App-Version y X-Track en cada respuesta', async () => {
+    const respuesta = await app.inject({ method: 'GET', url: '/health' })
+
+    expect(respuesta.headers['x-app-version']).toBeDefined()
+    expect(['stable', 'canary']).toContain(respuesta.headers['x-track'])
+  })
 })

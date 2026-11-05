@@ -28,6 +28,12 @@ export function buildApp() {
 
   app.register(fastifyHttpQuery)
 
+  // Identifica qué versión y track atendió cada petición (evidencia del canary)
+  app.addHook('onSend', async (request, reply) => {
+    reply.header('X-App-Version', process.env.APP_VERSION || 'dev')
+    reply.header('X-Track', process.env.APP_TRACK || 'stable')
+  })
+
   // No depende de la base de datos: usado como liveness/readiness probe en
   // Kubernetes, para que el Pod no se marque como no-saludable solo porque
   // la base de datos tarda en responder.
