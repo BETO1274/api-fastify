@@ -372,6 +372,7 @@ Con `APP_TRACK=canary` y `TEAM_API_KEY` definida, la v4 expone `POST /admin/caos
 |---|---|
 | Publicar stable / canary | `git tag v3.x.y` / `git tag v4.x.y` y `git push --tags`: construye la imagen y la despliega por digest en el servicio correspondiente |
 | Publicar el router | tag `router-vX.Y.Z` |
+| Demo 0: acceso y reparto | Actions → **Demo 0 - Acceso y reparto** → *Run workflow* (un botón, ~2 min): muestra el acceso al canary con 0 % (con y sin `x-canary`) y el reparto real al 30 % con 100 peticiones, con tablas en el *Summary* |
 | Demo 1: falla y rollback | Actions → **Demo 1 - Falla y rollback** → *Run workflow* (un botón, ~3 min): inyecta una falla, el gate aborta en la etapa 1 y el paso `ROLLBACK` devuelve el tráfico a stable |
 | Demo 2: promoción completa | Actions → **Demo 2 - Promocion completa** → *Run workflow* (un botón, ~13 min): etapas 10, 25, 50, 75 y 100 %, y despliega la v4 en stable |
 | Promoción genérica | Actions → **Canary - Promover por etapas** (con parámetros `demo`, `inyectar_falla` e `imagen_canary`), de respaldo |
