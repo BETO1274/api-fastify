@@ -2,7 +2,7 @@
 # Promocion progresiva del canary por etapas, con quality gate y rollback.
 #
 #   Etapa 0: 0% publico. Prueba de humo con x-canary: true.
-#   Etapa 1..3: sube el peso, genera carga durante el bake time, evalua el gate.
+#   Etapas 1..5 (10, 25, 50, 75 y 100%): sube el peso, genera carga durante el bake time, evalua el gate.
 #   promover -> siguiente etapa | pausar -> extiende la observacion | abortar -> peso 0 y falla.
 #
 # Variables:
@@ -11,7 +11,7 @@
 #                                    gratis de Render los servicios hibernan tras ~15 min sin trafico
 #   CANARY_TEAM_API_KEY              (solo para INYECTAR_FALLA=true)
 #   WARMUP_MAX_SEGUNDOS              espera maxima por servicio al despertarlo (120 por defecto)
-#   DEMO=true                        usa los tiempos cortos de slo.json
+#   DEMO=true                        usa los tiempos cortos (demo.bake_segundos) de slo.json
 #   BAKE_SEGUNDOS                    fuerza la duracion de cada bake (pruebas locales)
 #   SLO_ARCHIVO                      otro archivo de umbrales (pruebas locales)
 #   INYECTAR_FALLA=true              activa /admin/caos en el canary para simular una regresion
@@ -135,15 +135,15 @@ if [ "$INYECTAR_FALLA" = "true" ]; then
 fi
 trap 'caos apagar' EXIT
 
-# ---- Etapas 1..3 ----
-for etapa in 1 2 3; do
+# ---- Etapas de promocion: las que defina slo.json (10, 25, 50, 75 y 100%) ----
+for etapa in $(jq -r '.etapas | keys_unsorted[]' "$SLO"); do
   p="$(jq -r ".etapas[\"$etapa\"].peso" "$SLO")"
   if [ "$DEMO" = "true" ]; then
-    bake="$(jq -r ".demo.bake_minutos[\"$etapa\"]" "$SLO")"
+    segundos="$(jq -r ".demo.bake_segundos[\"$etapa\"]" "$SLO")"
   else
-    bake="$(jq -r ".etapas[\"$etapa\"].bake_minutos" "$SLO")"
+    segundos="$(( $(jq -r ".etapas[\"$etapa\"].bake_minutos" "$SLO") * 60 ))"
   fi
-  segundos="${BAKE_SEGUNDOS:-$((bake * 60))}"
+  segundos="${BAKE_SEGUNDOS:-$segundos}"
 
   echo "== Etapa $etapa: $p% al canary, bake ${segundos}s =="
   peso "$p" || terminar_con_rollback "no se pudo fijar el peso en $p"

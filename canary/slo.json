@@ -1,13 +1,46 @@
 {
   "descripcion": "Umbrales de decision del canary (SLO), versionados antes del despliegue. El gate compara canary contra la linea base stable midiendo en el router, con el mismo camino y la misma medicion para los dos tracks.",
   "etapas": {
-    "1": { "nombre": "Canary 10%", "peso": 10, "bake_minutos": 10, "min_peticiones_canary": 100 },
-    "2": { "nombre": "Canary 50%", "peso": 50, "bake_minutos": 15, "min_peticiones_canary": 300 },
-    "3": { "nombre": "Promovido 100%", "peso": 100, "bake_minutos": 10, "min_peticiones_canary": 300 }
+    "1": {
+      "nombre": "Canary 10%",
+      "peso": 10,
+      "bake_minutos": 10,
+      "min_peticiones_canary": 100
+    },
+    "2": {
+      "nombre": "Canary 25%",
+      "peso": 25,
+      "bake_minutos": 10,
+      "min_peticiones_canary": 150
+    },
+    "3": {
+      "nombre": "Canary 50%",
+      "peso": 50,
+      "bake_minutos": 15,
+      "min_peticiones_canary": 300
+    },
+    "4": {
+      "nombre": "Canary 75%",
+      "peso": 75,
+      "bake_minutos": 10,
+      "min_peticiones_canary": 300
+    },
+    "5": {
+      "nombre": "Promovido 100%",
+      "peso": 100,
+      "bake_minutos": 10,
+      "min_peticiones_canary": 300
+    }
   },
   "demo": {
-    "descripcion": "Tiempos cortos para la sustentacion en vivo; los umbrales de calidad no cambian",
-    "bake_minutos": { "1": 2, "2": 3, "3": 2 }
+    "descripcion": "Tiempos cortos (en segundos) para la sustentacion en vivo; los umbrales de calidad no cambian",
+    "bake_segundos": {
+      "1": 90,
+      "2": 90,
+      "3": 90,
+      "4": 90,
+      "5": 90
+    }
   },
   "umbrales": {
     "min_peticiones_abortar": 20,
