@@ -1,0 +1,73 @@
+name: Release del router de canary
+
+# Un tag router-vX.Y.Z construye la imagen del router y la publica en ghcr.io.
+# Si existe el secreto RENDER_SERVICE_ID_ROUTER, la despliega en Render por
+# digest SHA256 (artefacto inmutable).
+
+on:
+  push:
+    tags: ['router-v*']
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGEN: ghcr.io/beto1274/canary-router
+
+jobs:
+  release:
+    name: Build, publicar y desplegar el router
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: router/package-lock.json
+
+      - name: Lint y pruebas del router
+        working-directory: router
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+      - name: Login en ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build y push de la imagen
+        id: imagen
+        run: |
+          TAG="${{ github.ref_name }}"
+          docker build -t $IMAGEN:$TAG ./router
+          docker push $IMAGEN:$TAG
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $IMAGEN:$TAG)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Imagen inmutable: $DIGEST"
+
+      - name: Crear GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "${{ github.ref_name }} (router)" \
+            --notes "Imagen: \`${{ steps.imagen.outputs.digest }}\`" \
+            --verify-tag
+
+      - name: Desplegar en Render (por digest)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID_ROUTER }}
+        run: |
+          if [ -z "$SERVICE_ID" ] || [ -z "$RENDER_API_KEY" ]; then
+            echo "Sin RENDER_SERVICE_ID_ROUTER o RENDER_API_KEY: se omite el despliegue"
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"imageUrl\": \"${{ steps.imagen.outputs.digest }}\"}"
