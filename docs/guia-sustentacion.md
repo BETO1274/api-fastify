@@ -38,12 +38,11 @@ Mostrar, lado a lado, tráfico, errores 5xx, p50/p95/p99, CPU/memoria y artícul
 
 **Escenario 1: promoción exitosa hasta el 100 %**
 
-Actions → *Canary - Promover por etapas* → `demo: true`, `inyectar_falla: false`. Narrar mientras corre (unos 8 minutos):
+Actions → *Canary - Promover por etapas* → `demo: true`, `inyectar_falla: false`. Narrar mientras corre (cada etapa dura 90 s; en total unos 8 minutos más el despliegue final de stable):
 
 1. Etapa 0: humo con `x-canary`.
-2. Etapa 1 (10 %): sube el peso, hay carga, se espera el bake y el gate evalúa.
-3. Etapa 2 (50 %) y etapa 3 (100 %).
-4. Al final, stable pasa a ejecutar la imagen v4 y el peso vuelve a 0.
+2. Etapas 1 a 5 (10 %, 25 %, 50 %, 75 % y 100 %): sube el peso, hay carga, se espera el bake y el gate evalúa.
+3. Al final, stable pasa a ejecutar la imagen v4 y el peso vuelve a 0.
 
 En el tablero se ve cómo crece el tráfico del canary con cada etapa y que errores y latencia se mantienen parecidos a stable.
 

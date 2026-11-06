@@ -334,9 +334,11 @@ El plan está definido como código en [`canary/slo.json`](canary/slo.json) y lo
 | Etapa | Tráfico al canary | Bake time real | Bake time demo | Peticiones mínimas al canary | Cómo se accede |
 |---|---|---|---|---|---|
 | 0 | 0 % (solo interno) | prueba de humo | prueba de humo | n/a | cabecera `x-canary: true` |
-| 1 | 10 % | 10 min | 2 min | 100 | reparto ponderado |
-| 2 | 50 % | 15 min | 3 min | 300 | reparto ponderado |
-| 3 | 100 % (promovido) | 10 min | 2 min | 300 | reparto ponderado; luego stable pasa a ejecutar la imagen v4 y el peso vuelve a 0 |
+| 1 | 10 % | 10 min | 90 s | 100 | reparto ponderado |
+| 2 | 25 % | 10 min | 90 s | 150 | reparto ponderado |
+| 3 | 50 % | 15 min | 90 s | 300 | reparto ponderado |
+| 4 | 75 % | 10 min | 90 s | 300 | reparto ponderado |
+| 5 | 100 % (promovido) | 10 min | 90 s | 300 | reparto ponderado; luego stable pasa a ejecutar la imagen v4 y el peso vuelve a 0 |
 
 ### Umbrales de decisión (SLO)
 

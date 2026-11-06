@@ -19,10 +19,10 @@ api canary ──/metrics─────┘
 
 ## 2. Desplegar Alloy en Render (por imagen Docker)
 
-Alloy se publica como imagen en ghcr.io, igual que la API y el router: el tag `alloy-v1.0.0` dispara `.github/workflows/release-alloy.yml`, que valida `config.alloy` y publica `ghcr.io/beto1274/canary-alloy:alloy-v1.0.0`.
+Alloy se publica como imagen en ghcr.io, igual que la API y el router: el tag `alloy-v1.1.0` dispara `.github/workflows/release-alloy.yml`, que valida `config.alloy` y publica `ghcr.io/beto1274/canary-alloy:alloy-v1.1.0`.
 
 1. Pon el paquete `canary-alloy` en **público** (GitHub → Packages → `canary-alloy` → *Package settings* → *Change visibility*).
-2. Render → **New** → **Web Service** → **Existing image**. Image URL: `ghcr.io/beto1274/canary-alloy:alloy-v1.0.0`. Name: `canary-alloy`.
+2. Render → **New** → **Web Service** → **Existing image**. Image URL: `ghcr.io/beto1274/canary-alloy:alloy-v1.1.0`. Name: `canary-alloy`.
 3. Variables de entorno:
 
 | Variable | Valor |
@@ -41,7 +41,7 @@ Los hosts van **sin** `https://` y **con** `:443`.
 
 ## 3. Importar el tablero
 
-Grafana → **Dashboards** → **New** → **Import** → sube `observabilidad/dashboard.json` y elige tu fuente de datos Prometheus (la de Grafana Cloud). El tablero se llama **Canary: stable vs canary** y refresca cada 10 s.
+Grafana → **Dashboards** → **New** → **Import** → sube `observabilidad/dashboard.json` y elige tu fuente de datos Prometheus (la de Grafana Cloud). El tablero se llama **Canary: stable vs canary** , abre con el rango de los últimos 15 minutos y refresca cada 5 s.
 
 Paneles: peso hacia canary, versiones en ejecución, muestra acumulada, tráfico, errores 5xx, latencia p50/p95/p99, errores 502/504, CPU, memoria y artículos creados por minuto. Canary va en naranja y stable en azul.
 
