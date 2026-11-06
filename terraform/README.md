@@ -172,5 +172,5 @@ El input `confirmar` es obligatorio y debe decir exactamente `destruir` — es e
 
 * Este Terraform **crea** el Resource Group (el Bicep asumía que ya existía). Ciclo de vida más simple: `apply` lo crea todo, `destroy` lo borra todo.
 * Ya no usa Kubernetes: en vez de AKS corre en Azure Container Apps, así que no hay clúster, nodos ni manifiestos `kubectl` — los secrets `AKS_*` y la carpeta `k8s/` quedaron obsoletos para este despliegue.
-* La URL pública cambia con cada recreación (el FQDN del Container App es distinto cada vez). Actualiza `postman/gateway.local.postman_environment.json` con el valor de `terraform output -raw gateway_url` después de cada despliegue.
+* La URL pública cambia con cada recreación (el FQDN del Container App es distinto cada vez). Consúltala con `terraform output -raw gateway_url` después de cada despliegue (la colección de Postman del gateway ya no forma parte de esta entrega).
 * No declara las 29+ reglas de alerta recomendadas que sugiere el asistente del portal — si se quieren, se agregan a mano después del despliegue, igual que en la fase 2.

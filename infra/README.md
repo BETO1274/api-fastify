@@ -52,7 +52,7 @@ npm run db:init
 * Gateway: sigue `k8s/gateway/README.md` (depende del mismo namespace y configmap del orquestador).
 
 **Paso 4 — Actualizar lo que cambió:**
-* La IP pública del nuevo `Service` de la API es distinta (en v3 ya no hay un environment de Postman dedicado a esto — solo queda `postman/gateway.local.postman_environment.json`).
+* La IP pública del nuevo `Service` de la API es distinta (esta fase ya no incluye una colección de Postman: la de la entrega actual está en `postman/` y apunta a Render).
 * El `Service` `gateway` también recibe una IP pública nueva: esa es la que hay que pasarle al equipo como punto de entrada.
 * Avisa al equipo la IP nueva si la estaban usando.
 

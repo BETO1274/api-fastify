@@ -262,22 +262,22 @@ npm run test:coverage # con reporte de cobertura
 ```
 48 pruebas de integración (sin mocks, `fastify.inject()` contra la BD real): CRUD completo, `QUERY`, 400 de validación, violaciones de FK, 404, y la verificación numérica exacta de la regla de negocio de `fabricacion`.
 
-### Colección de Postman (contra el sistema v3 real en Azure, vía HTTP)
+### Colección de Postman (stable v3 y canary v4, en Render)
 Ubicada en [`postman/`](postman/):
 ```
 postman/
-├── README.md                                 ← explica el workaround de QUERY (ver abajo)
-├── gateway.postman_collection.json           ← 38 requests, flujo asíncrono completo
-├── gateway.postman_environment.json          ← plantilla versionada (sin valores reales)
-└── gateway.local.postman_environment.json    ← gitignorado, con la URL y la key reales
+├── README.md                                  ← variables, carpetas y cómo correrla
+├── canary.postman_collection.json             ← 40 requests, 82 aserciones
+├── canary-nube.postman_environment.json       ← plantilla versionada (sin claves)
+└── canary-nube.local.postman_environment.json ← gitignorado, con las claves reales
 ```
 
 Importar en Postman, o correr con `newman`:
 ```bash
-npx newman run postman/gateway.postman_collection.json -e postman/gateway.local.postman_environment.json
+npx newman run postman/canary.postman_collection.json -e postman/canary-nube.local.postman_environment.json
 ```
 
-> **Nota:** Azure Container Apps bloquea en su ingress el método `QUERY` (no estándar) antes de llegar al contenedor. No es un bug del código: `QUERY` está implementado y probado en la suite automatizada (que no pasa por ningún proxy) y funcionaba sin problema en AKS (fase 2). El workaround — mandar `POST` con el header `X-HTTP-Method-Override: QUERY` — ya está aplicado en el código y en esta colección. Detalle completo en [`postman/README.md`](postman/README.md).
+Prueba las dos versiones de la API (stable sin `categoria`, canary con `categoria`), la inyección de fallos, el router y los errores 4xx esperados.
 
 ---
 
