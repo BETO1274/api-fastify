@@ -372,11 +372,14 @@ Con `APP_TRACK=canary` y `TEAM_API_KEY` definida, la v4 expone `POST /admin/caos
 |---|---|
 | Publicar stable / canary | `git tag v3.x.y` / `git tag v4.x.y` y `git push --tags`: construye la imagen y la despliega por digest en el servicio correspondiente |
 | Publicar el router | tag `router-vX.Y.Z` |
-| Promoción por etapas | Actions → **Canary - Promover por etapas** → *Run workflow* (`demo` y `inyectar_falla` opcionales) |
+| Demo 1: falla y rollback | Actions → **Demo 1 - Falla y rollback** → *Run workflow* (un botón, ~3 min): inyecta una falla, el gate aborta en la etapa 1 y el paso `ROLLBACK` devuelve el tráfico a stable |
+| Demo 2: promoción completa | Actions → **Demo 2 - Promocion completa** → *Run workflow* (un botón, ~13 min): etapas 10, 25, 50, 75 y 100 %, y despliega la v4 en stable |
+| Promoción genérica | Actions → **Canary - Promover por etapas** (con parámetros `demo`, `inyectar_falla` e `imagen_canary`), de respaldo |
 | Rollback inmediato | Actions → **Canary - Rollback inmediato** |
 | Cambiar el peso a mano | `curl -X POST $ROUTER_URL/router/weight -H "x-admin-key: ..." -d '{"canary_weight":25}'` |
 | Ver quién atiende | `curl -i $ROUTER_URL/articulos/1` → cabeceras `X-Routed-To`, `X-Track`, `X-App-Version` |
-| Observabilidad | `observabilidad/README.md` (Alloy, tablero y alertas en Grafana Cloud) |
+| Observabilidad | `observabilidad/README.md` (Alloy, tablero, alertas y logs de errores en Grafana Cloud) |
+| Logs de errores | El router envía a Loki una línea por error con `track`, `version`, ruta, mensaje y `X-Request-Id` (ver `router/README.md`) |
 
 ## Documentación adicional
 
