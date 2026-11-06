@@ -16,7 +16,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -286,7 +286,7 @@
       "id": 14,
       "type": "timeseries",
       "title": "Peso del canary en el tiempo (%)",
-      "description": "Qué muestra: cómo cambia el peso del canary durante la demostración. Cómo se lee: una escalera. En una promoción sana sube 0 → 10 → 50 → 100. En un aborto sube a 10 y cae a 0 cuando el gate hace rollback.",
+      "description": "Qué muestra: cómo cambia el peso del canary durante la demostración. Cómo se lee: una escalera. En una promoción sana sube 0 → 10 → 50 → 100. En un aborto sube a 10 y cae a 0 cuando el gate hace rollback. La leyenda de abajo muestra el último valor (Last *) y el máximo alcanzado (Max): el último debe coincidir con el panel 'Peso hacia canary (%)'.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -320,11 +320,25 @@
             "fillOpacity": 15,
             "showPoints": "auto",
             "lineWidth": 2
-          }
+          },
+          "displayName": "peso del canary"
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
     },
     {
       "id": 5,
