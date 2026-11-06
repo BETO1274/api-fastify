@@ -1,5 +1,6 @@
 import http from 'node:http'
 import https from 'node:https'
+import { randomUUID } from 'node:crypto'
 import { crearMetricas } from './metricas.js'
 
 const TIMEOUT_MS = 30000
@@ -33,7 +34,8 @@ export function crearRouter({
   canaryUrl,
   pesoInicial = 0,
   adminKey = '',
-  random = Math.random
+  random = Math.random,
+  logs = { registrar() {} }
 }) {
   const destinos = { stable: new URL(stableUrl), canary: new URL(canaryUrl) }
   const metricas = crearMetricas()
@@ -84,11 +86,12 @@ export function crearRouter({
     return responderJson(res, 405, { mensaje: 'Método no permitido' })
   }
 
-  function reenviar(req, res, { track, motivo, asignar }) {
+  function reenviar(req, res, { track, motivo, asignar }, idPeticion) {
     const inicio = process.hrtime.bigint()
+    const ruta = req.url.split('?')[0]
     const destino = destinos[track]
     const cliente = destino.protocol === 'https:' ? https : http
-    const cabeceras = { ...req.headers, host: destino.host }
+    const cabeceras = { ...req.headers, host: destino.host, 'x-request-id': idPeticion }
     cabeceras['x-forwarded-for'] = [req.headers['x-forwarded-for'], req.socket.remoteAddress]
       .filter(Boolean)
       .join(', ')
@@ -111,17 +114,49 @@ export function crearRouter({
       headers: cabeceras,
       timeout: TIMEOUT_MS
     }, (respuesta) => {
-      const headers = { ...respuesta.headers, 'x-routed-to': track, 'x-route-reason': motivo }
+      const headers = { ...respuesta.headers, 'x-routed-to': track, 'x-route-reason': motivo, 'x-request-id': idPeticion }
       if (asignar) headers['set-cookie'] = `track=${track}; Max-Age=300; Path=/; SameSite=Lax`
       res.writeHead(respuesta.statusCode, headers)
+
+      // Los errores 5xx se registran con el mensaje puntual (primeros 300 caracteres del cuerpo).
+      let fragmento = ''
+      if (respuesta.statusCode >= 500) {
+        respuesta.on('data', (parte) => {
+          if (fragmento.length < 300) fragmento += parte.toString().slice(0, 300 - fragmento.length)
+        })
+      }
       respuesta.pipe(res)
-      respuesta.on('end', () => terminar(respuesta.statusCode))
+      respuesta.on('end', () => {
+        terminar(respuesta.statusCode)
+        if (respuesta.statusCode >= 500) {
+          logs.registrar('error', {
+            track,
+            version: respuesta.headers['x-app-version'] ?? 'desconocida',
+            status: respuesta.statusCode,
+            method: req.method,
+            path: ruta,
+            request_id: idPeticion,
+            reason: motivo,
+            error: fragmento || `HTTP ${respuesta.statusCode}`
+          })
+        }
+      })
     })
 
     const fallar = (codigo, mensaje) => {
       metricas.erroresUpstream.inc({ track })
+      logs.registrar('error', {
+        track,
+        version: 'desconocida',
+        status: codigo,
+        method: req.method,
+        path: ruta,
+        request_id: idPeticion,
+        reason: motivo,
+        error: mensaje
+      })
       if (!res.headersSent) {
-        res.writeHead(codigo, { 'content-type': 'application/json', 'x-routed-to': track })
+        res.writeHead(codigo, { 'content-type': 'application/json', 'x-routed-to': track, 'x-request-id': idPeticion })
         res.end(JSON.stringify({ mensaje }))
       }
       terminar(codigo)
@@ -142,7 +177,7 @@ export function crearRouter({
       return res.end(await metricas.registro.metrics())
     }
     if (ruta === '/router/weight') return admin(req, res)
-    reenviar(req, res, decidir(req))
+    reenviar(req, res, decidir(req), req.headers['x-request-id'] || randomUUID())
   })
 
   return { servidor, estado }
