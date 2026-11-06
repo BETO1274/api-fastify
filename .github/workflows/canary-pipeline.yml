@@ -8,7 +8,7 @@ name: Canary - Pipeline por pasos
 # La logica vive en canary/promover.sh (subcomandos) y los umbrales en canary/slo.json.
 # El paso "ROLLBACK" solo corre si algun paso anterior fallo (if: failure()).
 #
-# Variables del repo: ROUTER_URL, STABLE_URL, CANARY_URL
+# Variables del repo: ROUTER_URL, STABLE_URL, CANARY_URL, ALLOY_URL (opcional)
 # Secretos (heredados con "secrets: inherit"): ROUTER_ADMIN_KEY, CANARY_TEAM_API_KEY,
 #           RENDER_API_KEY, RENDER_SERVICE_ID_STABLE
 
@@ -36,6 +36,7 @@ env:
   ROUTER_URL: ${{ vars.ROUTER_URL }}
   STABLE_URL: ${{ vars.STABLE_URL }}
   CANARY_URL: ${{ vars.CANARY_URL }}
+  ALLOY_URL: ${{ vars.ALLOY_URL }}
   ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
   CANARY_TEAM_API_KEY: ${{ secrets.CANARY_TEAM_API_KEY }}
   DEMO: ${{ inputs.demo }}
@@ -61,7 +62,7 @@ jobs:
           npm run lint
           npm test
 
-      - name: 2 · Despertar stable y canary
+      - name: 2 · Despertar stable, canary y Alloy
         run: bash canary/promover.sh preparar
 
       - name: 3 · Etapa 0 · humo con x-canary (0 % publico)

@@ -36,6 +36,7 @@ env:
   ROUTER_URL: ${{ vars.ROUTER_URL }}
   STABLE_URL: ${{ vars.STABLE_URL }}
   CANARY_URL: ${{ vars.CANARY_URL }}
+  ALLOY_URL: ${{ vars.ALLOY_URL }}
   ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
   CANARY_TEAM_API_KEY: ${{ secrets.CANARY_TEAM_API_KEY }}
 

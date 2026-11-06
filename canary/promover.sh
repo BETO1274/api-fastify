@@ -20,6 +20,8 @@
 #   ROUTER_URL, ADMIN_KEY            (obligatorias)
 #   STABLE_URL, CANARY_URL           (recomendadas) se despiertan antes de empezar: en el plan
 #                                    gratis de Render los servicios hibernan tras ~15 min sin trafico
+#   ALLOY_URL                        (opcional) se despierta tambien para que Grafana reciba metricas;
+#                                    si no responde solo se avisa, no bloquea la promocion
 #   CANARY_TEAM_API_KEY              (solo para INYECTAR_FALLA=true)
 #   WARMUP_MAX_SEGUNDOS              espera maxima por servicio al despertarlo (120 por defecto)
 #   DEMO=true                        usa los tiempos cortos (demo.bake_segundos) de slo.json
@@ -60,11 +62,11 @@ caos() {
   fi
 }
 
-# Despierta un servicio con peticiones directas a /health hasta que responda 200.
+# Despierta un servicio con peticiones directas (a /health por defecto) hasta que responda 200.
 calentar() {
-  local nombre="$1" url="${2%/}" codigo fin=$((SECONDS + WARMUP_MAX_SEGUNDOS))
+  local nombre="$1" url="${2%/}" ruta="${3:-/health}" codigo fin=$((SECONDS + WARMUP_MAX_SEGUNDOS))
   while [ "$SECONDS" -lt "$fin" ]; do
-    codigo="$(curl -s -o /dev/null -m 30 -w '%{http_code}' "$url/health" 2>/dev/null || true)"
+    codigo="$(curl -s -o /dev/null -m 30 -w '%{http_code}' "$url$ruta" 2>/dev/null || true)"
     if [ "$codigo" = "200" ]; then
       echo "$nombre listo (HTTP 200)"
       return 0
@@ -151,6 +153,14 @@ fase_preparar() {
       exit 1
     fi
   done
+
+  # Alloy envia las metricas a Grafana. No es parte de la decision del gate (el gate lee las
+  # metricas del router), por eso no bloquea: solo se despierta y se avisa si no responde.
+  if [ -n "${ALLOY_URL:-}" ]; then
+    calentar "alloy" "${ALLOY_URL%/}" "/-/ready" || echo "::warning::Alloy no respondio en ${WARMUP_MAX_SEGUNDOS}s: el tablero de Grafana puede mostrar huecos"
+  else
+    echo "Sin ALLOY_URL: se omite el despertar de Alloy"
+  fi
 }
 
 fase_humo() {
