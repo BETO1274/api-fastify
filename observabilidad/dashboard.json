@@ -23,7 +23,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 5,
+  "version": 6,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -1055,6 +1055,72 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Errores 4xx por track",
+      "description": "Qué muestra: porcentaje de peticiones que terminan en error 4xx (400 petición inválida, 404 recurso que no existe, 401 sin clave) en cada versión. Cómo se lee: son errores del cliente, no de la API, así que NO abortan la promoción (el gate decide con los 5xx). Sirve para detectar un cambio de contrato: si el canary muestra 4xx y stable no, la versión nueva rechaza peticiones que la anterior aceptaba (por ejemplo, una validación más estricta).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 29,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (track) (rate(router_requests_total{status_class=\"4xx\"}[30s]) or (rate(router_requests_total[30s]) * 0)) / sum by (track) (rate(router_requests_total[30s]))",
+          "legendFormat": "{{track}}",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*canary.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*stable.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {}
     }
   ],
   "templating": {
