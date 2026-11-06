@@ -20,7 +20,7 @@ function api(track, version) {
         return res.end(JSON.stringify({ mensaje: 'Fallo inyectado (caos)' }))
       }
       res.writeHead(200, cabeceras)
-      res.end(JSON.stringify({ track, version, requestId: req.headers['x-request-id'] }))
+      res.end(JSON.stringify({ track, version, requestId: req.headers['x-request-id'], acceptEncoding: req.headers['accept-encoding'] }))
     })
   })
 }
@@ -137,6 +137,16 @@ describe('logs de errores del router', () => {
 
     expect(r.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/)
     expect(cuerpo.requestId).toBe(r.headers['x-request-id'])
+    servidor.close()
+  })
+
+  it('pide a la API la respuesta sin comprimir aunque el cliente acepte br y gzip', async () => {
+    const { servidor } = nuevoRouter()
+    const puerto = await levantar(servidor)
+
+    const r = await pedir(puerto, { headers: { 'accept-encoding': 'gzip, br' } })
+
+    expect(JSON.parse(r.texto).acceptEncoding).toBe('identity')
     servidor.close()
   })
 
