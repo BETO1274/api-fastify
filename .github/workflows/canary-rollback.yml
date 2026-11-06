@@ -1,0 +1,36 @@
+name: Canary - Rollback inmediato
+
+# Devuelve el trafico a stable (0% hacia canary), apaga cualquier falla
+# inyectada y borra los articulos de carga. No toca la base de datos: la
+# columna categoria es aditiva (Expand), asi que stable sigue funcionando.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Rollback a stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Peso a 0 y caos apagado
+        env:
+          ROUTER_URL: ${{ vars.ROUTER_URL }}
+          CANARY_URL: ${{ vars.CANARY_URL }}
+          ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
+          CANARY_TEAM_API_KEY: ${{ secrets.CANARY_TEAM_API_KEY }}
+        run: |
+          curl --fail-with-body -sS -X POST "$ROUTER_URL/router/weight" -H "x-admin-key: $ADMIN_KEY" \
+            -H 'content-type: application/json' -d '{"canary_weight":0}'
+          curl -sS -X DELETE "$CANARY_URL/admin/caos" -H "x-api-key: $CANARY_TEAM_API_KEY" || true
+          node canary/carga.mjs --router "$ROUTER_URL" --limpiar true || true
+          echo "### Rollback: 0% hacia canary, 100% hacia stable" >> "$GITHUB_STEP_SUMMARY"
