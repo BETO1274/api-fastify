@@ -45,6 +45,28 @@ Grafana → **Dashboards** → **New** → **Import** → sube `observabilidad/d
 
 Paneles: peso hacia canary, versiones en ejecución, muestra acumulada, tráfico, errores 5xx, latencia p50/p95/p99, errores 502/504, CPU, memoria y artículos creados por minuto. Canary va en naranja y stable en azul.
 
+## Cómo leer el tablero
+
+Colores: **canary en naranja, stable en azul**. Cada panel también trae su descripción al pasar el ratón por la «i».
+
+| Panel | Qué muestra | Cómo se lee |
+|---|---|---|
+| Peso hacia canary (%) | % de tráfico público que va hoy al canary | 0 = nadie ve el canary; 10, 50 y 100 son las etapas |
+| Versiones en ejecución | Versión y track de cada servicio | Debe verse `stable v3.0.1` y `canary v4.0.0` |
+| Peticiones al canary / a stable (5 min) | Muestra acumulada de cada versión | Si la del canary es baja, el gate pausa en vez de decidir |
+| Peso del canary en el tiempo | Evolución del peso durante la demo | Una escalera: sana `0 → 10 → 50 → 100`; aborto `0 → 10 → 0` |
+| Tráfico por track (req/s) | Peticiones por segundo de cada versión | Las dos líneas se reparten el total según el peso |
+| Tasa de errores 5xx | % de peticiones con error 5xx | 0 % sano. El gate aborta si el canary pasa del 2 % o supera a stable por más de 1 punto |
+| Latencia p50 | Mediana del tiempo de respuesta | Experiencia típica; canary y stable deben parecerse |
+| Latencia p95 | Tiempo bajo el cual responde el 95 % | Respuestas lentas; límite del gate: max(1,5 × stable, stable + 100 ms) |
+| Latencia p99 | Tiempo del 1 % más lento | Picos que el p95 oculta; límite: max(2 × stable, stable + 250 ms) |
+| Errores 502/504 | Veces que el router no alcanzó un servicio | Debe estar en 0; si sube es un problema de disponibilidad, no de código |
+| Saturación: CPU | Núcleos que consume cada versión | Si el canary gasta mucho más que stable, la versión nueva es más pesada |
+| Saturación: memoria | RAM de cada versión | Una línea que sube sin parar sería una fuga de memoria |
+| Negocio: artículos creados por minuto | Métrica de negocio de cada versión | Solo hay valores con carga; confirma que la función de negocio funciona, no solo que responde |
+
+Las **cuatro señales doradas** son tráfico, errores, latencia (p50/p95/p99) y saturación (CPU y memoria).
+
 ## 4. Alerta (quality gate en la nube)
 
 El quality gate automático corre en el pipeline (`canary/gate.mjs`, umbrales en `canary/slo.json`). La alerta de Grafana es la segunda red de seguridad y deja evidencia visible durante la demo.
