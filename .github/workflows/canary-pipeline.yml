@@ -1,0 +1,124 @@
+name: Canary - Pipeline por pasos
+
+# Pipeline reutilizable: cada fase de la promocion es un paso con nombre propio,
+# para que en Actions se vea que hace el pipeline en cada momento. Lo llaman:
+#   - canary-demo-falla.yml     (inyectar_falla = true)  -> aborta y hace rollback
+#   - canary-demo-completo.yml  (inyectar_falla = false) -> promueve hasta el 100%
+#
+# La logica vive en canary/promover.sh (subcomandos) y los umbrales en canary/slo.json.
+# El paso "ROLLBACK" solo corre si algun paso anterior fallo (if: failure()).
+#
+# Variables del repo: ROUTER_URL, STABLE_URL, CANARY_URL
+# Secretos (heredados con "secrets: inherit"): ROUTER_ADMIN_KEY, CANARY_TEAM_API_KEY,
+#           RENDER_API_KEY, RENDER_SERVICE_ID_STABLE
+
+on:
+  workflow_call:
+    inputs:
+      inyectar_falla:
+        description: 'Activar /admin/caos en el canary para simular una regresion'
+        type: boolean
+        required: true
+      demo:
+        description: 'Usar los tiempos cortos de bake (90 s por etapa)'
+        type: boolean
+        default: true
+      imagen_canary:
+        description: 'Imagen del canary que se promueve a stable al llegar al 100%'
+        type: string
+        default: 'ghcr.io/beto1274/api-fastify:v4.0.0'
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+env:
+  ROUTER_URL: ${{ vars.ROUTER_URL }}
+  STABLE_URL: ${{ vars.STABLE_URL }}
+  CANARY_URL: ${{ vars.CANARY_URL }}
+  ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
+  CANARY_TEAM_API_KEY: ${{ secrets.CANARY_TEAM_API_KEY }}
+  DEMO: ${{ inputs.demo }}
+  INYECTAR_FALLA: ${{ inputs.inyectar_falla }}
+  MODO_PASOS: 'true'
+
+jobs:
+  canary:
+    name: Pipeline canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 1 · Pruebas del gate y de la carga
+        working-directory: canary
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+      - name: 2 · Despertar stable y canary
+        run: bash canary/promover.sh preparar
+
+      - name: 3 · Etapa 0 · humo con x-canary (0 % publico)
+        run: bash canary/promover.sh humo
+
+      - name: 4 · Inyectar la falla en el canary
+        if: inputs.inyectar_falla
+        run: bash canary/promover.sh caos
+
+      # Los pesos salen de canary/slo.json (10, 25, 50, 75 y 100).
+      - name: 5 · Etapa 1 · 10 % al canary
+        run: bash canary/promover.sh etapa 1
+
+      - name: 6 · Etapa 2 · 25 % al canary
+        run: bash canary/promover.sh etapa 2
+
+      - name: 7 · Etapa 3 · 50 % al canary
+        run: bash canary/promover.sh etapa 3
+
+      - name: 8 · Etapa 4 · 75 % al canary
+        run: bash canary/promover.sh etapa 4
+
+      - name: 9 · Etapa 5 · 100 % al canary
+        run: bash canary/promover.sh etapa 5
+
+      - name: 10 · Cierre · promovido al 100 % y limpieza
+        run: bash canary/promover.sh cierre
+
+      - name: 11 · Desplegar la v4 en stable y devolver el peso a 0
+        if: success() && inputs.inyectar_falla == false
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID_STABLE }}
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "${{ inputs.imagen_canary }}" --format '{{.Manifest.Digest}}')
+          IMAGEN="${{ inputs.imagen_canary }}"
+          REF="${IMAGEN%%:*}@${DIGEST}"
+          echo "Desplegando en stable: $REF"
+          curl --fail-with-body -sS -X POST "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+            -d "{\"imageUrl\": \"$REF\"}"
+
+          for i in $(seq 1 60); do
+            ESTADO=$(curl -fsS "https://api.render.com/v1/services/$SERVICE_ID/deploys?limit=1" \
+              -H "Authorization: Bearer $RENDER_API_KEY" | jq -r '.[0].deploy.status')
+            echo "deploy de stable: $ESTADO"
+            [ "$ESTADO" = "live" ] && break
+            case "$ESTADO" in build_failed|update_failed|canceled|deactivated) echo "::error::El despliegue de stable fallo: $ESTADO"; exit 1 ;; esac
+            sleep 10
+          done
+          [ "$ESTADO" = "live" ] || { echo "::error::El despliegue de stable no termino a tiempo"; exit 1; }
+
+          curl -fsS -X POST "$ROUTER_URL/router/weight" -H "x-admin-key: $ADMIN_KEY" \
+            -H 'content-type: application/json' -d '{"canary_weight":0}'
+          echo "### Stable ahora ejecuta el canary promovido. Router en 0% hacia canary." >> "$GITHUB_STEP_SUMMARY"
+
+      # Corre solo si algun paso anterior fallo: es el rollback automatico.
+      - name: ROLLBACK · peso 0, caos apagado y limpieza de datos
+        if: failure()
+        run: bash canary/promover.sh rollback
