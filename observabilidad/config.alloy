@@ -1,0 +1,39 @@
+// Alloy: recolecta las metricas del router y de las dos APIs (stable y canary)
+// y las envia a Grafana Cloud. Corre como un servicio mas en Render.
+//
+// Variables de entorno:
+//   ROUTER_HOST, STABLE_HOST, CANARY_HOST   host:443 de cada servicio (sin https://)
+//   GRAFANA_REMOTE_WRITE_URL, GRAFANA_USER, GRAFANA_TOKEN   datos de Grafana Cloud
+
+prometheus.scrape "router" {
+  job_name        = "router"
+  targets         = [{"__address__" = sys.env("ROUTER_HOST")}]
+  scheme          = "https"
+  metrics_path    = "/router/metrics"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.grafana.receiver]
+}
+
+// Las APIs ya etiquetan sus metricas con track (stable|canary) y version.
+prometheus.scrape "api" {
+  job_name        = "api"
+  targets         = [
+    {"__address__" = sys.env("STABLE_HOST")},
+    {"__address__" = sys.env("CANARY_HOST")},
+  ]
+  scheme          = "https"
+  metrics_path    = "/metrics"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.grafana.receiver]
+}
+
+prometheus.remote_write "grafana" {
+  endpoint {
+    url = sys.env("GRAFANA_REMOTE_WRITE_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_USER")
+      password = sys.env("GRAFANA_TOKEN")
+    }
+  }
+}
