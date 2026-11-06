@@ -1,0 +1,26 @@
+{
+  "descripcion": "Umbrales de decision del canary (SLO), versionados antes del despliegue. El gate compara canary contra la linea base stable midiendo en el router, con el mismo camino y la misma medicion para los dos tracks.",
+  "etapas": {
+    "1": { "nombre": "Canary 10%", "peso": 10, "bake_minutos": 10, "min_peticiones_canary": 100 },
+    "2": { "nombre": "Canary 50%", "peso": 50, "bake_minutos": 15, "min_peticiones_canary": 300 },
+    "3": { "nombre": "Promovido 100%", "peso": 100, "bake_minutos": 10, "min_peticiones_canary": 300 }
+  },
+  "demo": {
+    "descripcion": "Tiempos cortos para la sustentacion en vivo; los umbrales de calidad no cambian",
+    "bake_minutos": { "1": 2, "2": 3, "3": 2 }
+  },
+  "umbrales": {
+    "min_peticiones_abortar": 20,
+    "tasa_error_max": 0.02,
+    "tasa_error_delta_max": 0.01,
+    "p95_ratio_max": 1.5,
+    "p95_margen_ms": 100,
+    "p99_ratio_max": 2.0,
+    "p99_margen_ms": 250
+  },
+  "reglas": {
+    "promover": "El canary alcanzo min_peticiones_canary y cumple todos los umbrales",
+    "pausar": "Aun no hay peticiones suficientes para decidir (muestra no representativa): se extiende la observacion, no se promueve",
+    "abortar": "Con al menos min_peticiones_abortar peticiones, se viola alguno: tasa de errores 5xx del canary > tasa_error_max, o supera a stable por mas de tasa_error_delta_max, o p95/p99 > max(stable * ratio, stable + margen)"
+  }
+}
