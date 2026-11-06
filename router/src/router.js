@@ -91,7 +91,10 @@ export function crearRouter({
     const ruta = req.url.split('?')[0]
     const destino = destinos[track]
     const cliente = destino.protocol === 'https:' ? https : http
-    const cabeceras = { ...req.headers, host: destino.host, 'x-request-id': idPeticion }
+    // 'accept-encoding: identity': el borde de Render agrega gzip/br a la peticion y la API
+    // respondia comprimida, con lo que el mensaje de error se registraba como bytes de Brotli.
+    // El router no necesita compresion; el borde comprime hacia el cliente si hace falta.
+    const cabeceras = { ...req.headers, host: destino.host, 'x-request-id': idPeticion, 'accept-encoding': 'identity' }
     cabeceras['x-forwarded-for'] = [req.headers['x-forwarded-for'], req.socket.remoteAddress]
       .filter(Boolean)
       .join(', ')
