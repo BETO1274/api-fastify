@@ -4,7 +4,7 @@ name: Canary - Promover por etapas
 # quality gate en cada etapa (umbrales en canary/slo.json). Si el gate aborta,
 # el router queda en 0% hacia canary y 100% hacia stable, y el job falla.
 #
-# Variables del repo (Settings > Variables): ROUTER_URL, CANARY_URL
+# Variables del repo (Settings > Variables): ROUTER_URL, STABLE_URL, CANARY_URL
 # Secretos: ROUTER_ADMIN_KEY, CANARY_TEAM_API_KEY, RENDER_API_KEY,
 #           RENDER_SERVICE_ID_STABLE
 
@@ -30,6 +30,7 @@ concurrency:
 
 env:
   ROUTER_URL: ${{ vars.ROUTER_URL }}
+  STABLE_URL: ${{ vars.STABLE_URL }}
   CANARY_URL: ${{ vars.CANARY_URL }}
   ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
   CANARY_TEAM_API_KEY: ${{ secrets.CANARY_TEAM_API_KEY }}
