@@ -13,9 +13,12 @@ const PREFIJO = 'carga-canary'
 const dormir = (ms) => new Promise((resolver) => setTimeout(resolver, ms))
 
 async function pedir(base, ruta, opciones = {}) {
+  // Content-Type solo si hay cuerpo: Fastify responde 400 a un DELETE con
+  // 'application/json' y cuerpo vacio.
+  const headers = opciones.body ? { 'content-type': 'application/json', ...opciones.headers } : { ...opciones.headers }
   const respuesta = await fetch(`${base}${ruta}`, {
     ...opciones,
-    headers: { 'content-type': 'application/json', ...opciones.headers },
+    headers,
     signal: AbortSignal.timeout(20000)
   })
   const texto = await respuesta.text()
@@ -82,13 +85,16 @@ export async function limpiar(router) {
 
   let borrados = 0
   for (const { id } of JSON.parse(busqueda.texto)) {
-    // Con una falla inyectada en el canary algunas peticiones devuelven 500: se reintenta.
+    // Con una falla inyectada en el canary algunas peticiones devuelven 500 o
+    // fallan en red: solo eso se reintenta. Un 4xx (distinto de 404) no se
+    // arregla repitiendo, asi que se descarta sin bucle.
     for (let intento = 0; intento < 8; intento++) {
       const r = await pedir(base, `/articulos/${id}`, { method: 'DELETE' }).catch(() => null)
       if (r && (r.status === 204 || r.status === 404)) {
         borrados++
         break
       }
+      if (r && r.status >= 400 && r.status < 500) break
     }
   }
   return borrados
