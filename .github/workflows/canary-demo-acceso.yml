@@ -16,6 +16,7 @@ env:
   ROUTER_URL: ${{ vars.ROUTER_URL }}
   STABLE_URL: ${{ vars.STABLE_URL }}
   CANARY_URL: ${{ vars.CANARY_URL }}
+  ALLOY_URL: ${{ vars.ALLOY_URL }}
   ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
 
 jobs:
@@ -26,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 1 · Despertar router, stable y canary
+      - name: 1 · Despertar router, stable, canary y Alloy
         run: bash canary/demo-acceso.sh despertar
 
       - name: 2 · (a) Acceso con 0 % público, con y sin x-canary

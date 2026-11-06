@@ -5,7 +5,9 @@
 #
 # Uso: demo-acceso.sh [despertar | acceso | reparto [PESO] [PETICIONES] | volver]
 #
-# Variables: ROUTER_URL, ADMIN_KEY (obligatorias); STABLE_URL, CANARY_URL (para despertar).
+# Variables: ROUTER_URL, ADMIN_KEY (obligatorias); STABLE_URL, CANARY_URL, ALLOY_URL (para despertar).
+# Alloy no bloquea nada: si no responde solo se avisa, pero hay que despertarlo para que el
+# tablero de Grafana reciba metricas durante la demostracion.
 # Escribe en el Summary del job (GITHUB_STEP_SUMMARY) las tablas de resultados.
 set -uo pipefail
 
@@ -52,12 +54,19 @@ consultar() {
 
 fase_despertar() {
   echo "== Despertando los servicios (plan gratis) =="
-  local par
+  local par nombre url
   for par in "router:$ROUTER_URL/router/health" "stable:${STABLE_URL:-}/health" "canary:${CANARY_URL:-}/health"; do
-    local nombre="${par%%:*}" url="${par#*:}"
+    nombre="${par%%:*}"; url="${par#*:}"
     case "$url" in "/health") echo "Sin URL de $nombre: se omite"; continue ;; esac
     calentar "$nombre" "$url" || { echo "::error::$nombre no respondio HTTP 200 en ${WARMUP_MAX_SEGUNDOS}s"; exit 1; }
   done
+
+  # Alloy envia las metricas al tablero; no es parte de la prueba, asi que no bloquea.
+  if [ -n "${ALLOY_URL:-}" ]; then
+    calentar "alloy" "${ALLOY_URL%/}/-/ready" || echo "::warning::Alloy no respondio en ${WARMUP_MAX_SEGUNDOS}s: el tablero de Grafana puede mostrar huecos"
+  else
+    echo "Sin ALLOY_URL: se omite el despertar de Alloy"
+  fi
 }
 
 fase_acceso() {
