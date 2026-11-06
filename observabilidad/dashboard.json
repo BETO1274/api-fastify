@@ -16,7 +16,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": {
     "from": "now-30m",
@@ -28,7 +28,7 @@
       "id": 1,
       "type": "stat",
       "title": "Peso hacia canary (%)",
-      "description": "Porcentaje de trafico publico que el router envia a canary. 0 = etapa 0 o rollback",
+      "description": "Qué muestra: el porcentaje de tráfico público que el router envía hoy al canary (v4). Cómo se lee: 0 = nadie ve el canary (etapa 0 o tras un rollback); 10, 50 y 100 son las etapas de la promoción.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -94,7 +94,7 @@
       "id": 2,
       "type": "stat",
       "title": "Versiones en ejecucion",
-      "description": "Version y track de cada servicio (cabeceras X-App-Version / X-Track)",
+      "description": "Qué muestra: la versión que corre cada servicio y su track. Cómo se lee: debe verse 'stable v3.0.1' y 'canary v4.0.0'. Si un servicio no aparece, está caído o dormido.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -158,7 +158,7 @@
       "id": 3,
       "type": "stat",
       "title": "Peticiones al canary (5 min)",
-      "description": "Muestra acumulada: sirve para saber si el volumen es representativo antes de decidir",
+      "description": "Qué muestra: cuántas peticiones recibió el canary en los últimos 5 minutos (sin contar las pruebas de humo con x-canary). Cómo se lee: es la muestra. Si es baja, el gate no decide (pausa) porque un par de errores distorsionaría la tasa.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -222,7 +222,7 @@
       "id": 4,
       "type": "stat",
       "title": "Peticiones a stable (5 min)",
-      "description": "",
+      "description": "Qué muestra: peticiones atendidas por stable (v3) en 5 minutos. Cómo se lee: compárala con el canary; debe coincidir con el reparto del peso (con 10 % del canary, stable recibe ~9 de cada 10).",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -283,16 +283,60 @@
       "options": {}
     },
     {
-      "id": 5,
+      "id": 14,
       "type": "timeseries",
-      "title": "Trafico por track (req/s)",
-      "description": "Senal dorada: trafico (visto por el router)",
+      "title": "Peso del canary en el tiempo (%)",
+      "description": "Qué muestra: cómo cambia el peso del canary durante la demostración. Cómo se lee: una escalera. En una promoción sana sube 0 → 10 → 50 → 100. En un aborto sube a 10 y cae a 0 cuando el gate hace rollback.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
         "x": 0,
+        "y": 5,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "router_canary_weight",
+          "legendFormat": "peso del canary",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 15,
+            "showPoints": "auto",
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Trafico por track (req/s)",
+      "description": "Qué muestra: peticiones por segundo que atiende cada versión (señal dorada: tráfico). Cómo se lee: stable (azul) y canary (naranja) se reparten el total según el peso. Si el peso sube, la línea del canary sube y la de stable baja.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "gridPos": {
+        "x": 8,
         "y": 5,
         "w": 8,
         "h": 8
@@ -352,13 +396,13 @@
       "id": 6,
       "type": "timeseries",
       "title": "Tasa de errores 5xx por track",
-      "description": "Senal dorada: errores. El gate aborta si el canary supera el 2%",
+      "description": "Qué muestra: porcentaje de peticiones que terminan en error 5xx en cada versión (señal dorada: errores). Cómo se lee: 0 % es sano. El gate aborta si el canary supera el 2 % o supera a stable por más de 1 punto.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 8,
+        "x": 16,
         "y": 5,
         "w": 8,
         "h": 8
@@ -370,7 +414,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum by (track) (rate(router_requests_total{status_class=\"5xx\"}[1m])) / sum by (track) (rate(router_requests_total[1m]))",
+          "expr": "sum by (track) (rate(router_requests_total{status_class=\"5xx\"}[1m]) or (rate(router_requests_total[1m]) * 0)) / sum by (track) (rate(router_requests_total[1m]))",
           "legendFormat": "{{track}}",
           "instant": false
         }
@@ -418,14 +462,14 @@
       "id": 7,
       "type": "timeseries",
       "title": "Latencia p50 por track",
-      "description": "Senal dorada: latencia",
+      "description": "Qué muestra: la mediana del tiempo de respuesta: la mitad de las peticiones fue más rápida que este valor. Cómo se lee: es la experiencia típica. Si canary y stable están parecidos, la versión nueva no empeora el caso normal.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 16,
-        "y": 5,
+        "x": 0,
+        "y": 13,
         "w": 8,
         "h": 8
       },
@@ -484,13 +528,13 @@
       "id": 8,
       "type": "timeseries",
       "title": "Latencia p95 por track",
-      "description": "",
+      "description": "Qué muestra: el tiempo por debajo del cual responde el 95 % de las peticiones (señal dorada: latencia). Cómo se lee: muestra las respuestas lentas. El gate aborta si el p95 del canary supera max(1,5 × stable, stable + 100 ms).",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 0,
+        "x": 8,
         "y": 13,
         "w": 8,
         "h": 8
@@ -550,13 +594,13 @@
       "id": 9,
       "type": "timeseries",
       "title": "Latencia p99 por track",
-      "description": "",
+      "description": "Qué muestra: el tiempo del 1 % más lento de las peticiones. Cómo se lee: detecta picos que el p95 oculta. Límite del gate: max(2 × stable, stable + 250 ms).",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 8,
+        "x": 16,
         "y": 13,
         "w": 8,
         "h": 8
@@ -616,14 +660,14 @@
       "id": 10,
       "type": "timeseries",
       "title": "Errores 502/504 hacia los servicios",
-      "description": "El router no pudo contactar el servicio",
+      "description": "Qué muestra: veces que el router no pudo contactar a un servicio (caído, dormido o sin respuesta a tiempo). Cómo se lee: debe estar en 0. Si sube, el problema es de disponibilidad del servicio, no del código.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 16,
-        "y": 13,
+        "x": 0,
+        "y": 21,
         "w": 8,
         "h": 8
       },
@@ -634,7 +678,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum by (track) (rate(router_upstream_errors_total[1m]))",
+          "expr": "sum by (track) (rate(router_upstream_errors_total[1m])) or (sum by (track) (rate(router_requests_total[1m])) * 0)",
           "legendFormat": "{{track}}",
           "instant": false
         }
@@ -682,13 +726,13 @@
       "id": 11,
       "type": "timeseries",
       "title": "Saturacion: CPU (cores)",
-      "description": "Senal dorada: saturacion",
+      "description": "Qué muestra: cuánta CPU consume cada versión (señal dorada: saturación), en núcleos. Cómo se lee: compara canary con stable bajo la misma carga. Si el canary usa mucho más, la versión nueva es más pesada.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 0,
+        "x": 8,
         "y": 21,
         "w": 8,
         "h": 8
@@ -746,13 +790,13 @@
       "id": 12,
       "type": "timeseries",
       "title": "Saturacion: memoria residente",
-      "description": "",
+      "description": "Qué muestra: memoria RAM que ocupa cada versión. Cómo se lee: una línea que sube sin parar sería una fuga de memoria. Es lo que busca el tiempo de horneado (bake time).",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 8,
+        "x": 16,
         "y": 21,
         "w": 8,
         "h": 8
@@ -812,14 +856,14 @@
       "id": 13,
       "type": "timeseries",
       "title": "Negocio: articulos creados por minuto",
-      "description": "Metrica de negocio del dominio",
+      "description": "Qué muestra: métrica de negocio: artículos creados por minuto en cada versión. Cómo se lee: solo hay valores mientras hay carga. Que el canary cree artículos con normalidad confirma que la función de negocio sigue funcionando, no solo que responde.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "gridPos": {
-        "x": 16,
-        "y": 21,
+        "x": 0,
+        "y": 29,
         "w": 8,
         "h": 8
       },
