@@ -1,0 +1,1457 @@
+{
+  "info": {
+    "_postman_id": "61637aae-92bc-4469-bb46-10ca3b218d51",
+    "name": "Canary - API stable (v3) y canary (v4)",
+    "description": "Pruebas de las dos versiones de la API y del router. Variables de environment: stable_url, canary_url, router_url, team_api_key (canary) y admin_key (router). Ejecutar en orden con el Collection Runner o con newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Salud, versiones y metricas",
+      "item": [
+        {
+          "name": "1 - GET health stable",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/health",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-track = stable\", function () { pm.expect(pm.response.headers.get(\"x-track\")).to.eql(\"stable\"); });",
+                  "pm.test(\"X-App-Version es 3.x\", function () { pm.expect(pm.response.headers.get(\"x-app-version\")).to.match(/^3\\./); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - GET health canary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/health",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-track = canary\", function () { pm.expect(pm.response.headers.get(\"x-track\")).to.eql(\"canary\"); });",
+                  "pm.test(\"X-App-Version es 4.x\", function () { pm.expect(pm.response.headers.get(\"x-app-version\")).to.match(/^4\\./); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - GET health router",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{router_url}}/router/health",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "router",
+                "health"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - GET /metrics stable (version y track en cada serie)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/metrics",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "metrics"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"las series llevan track=\\\"stable\\\"\", function () { pm.expect(pm.response.text()).to.include('track=\"stable\"'); });",
+                  "pm.test(\"trae metricas de trafico y latencia\", function () { var t = pm.response.text(); pm.expect(t).to.include(\"http_request_duration_seconds\"); pm.expect(t).to.include(\"process_resident_memory_bytes\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - GET /metrics canary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/metrics",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "metrics"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"las series llevan track=\\\"canary\\\"\", function () { pm.expect(pm.response.text()).to.include('track=\"canary\"'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6 - GET /router/metrics (SLI vistos por el router)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{router_url}}/router/metrics",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "router",
+                "metrics"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"expone peso y peticiones por track\", function () { var t = pm.response.text(); pm.expect(t).to.include(\"router_canary_weight\"); pm.expect(t).to.include(\"router_requests_total\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Comprueba que cada servicio responde con su version y su track, y que exponen metricas."
+    },
+    {
+      "name": "01 - Stable (v3.0.1): CRUD sin categoria",
+      "item": [
+        {
+          "name": "1 - GET all articulos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/articulos",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-track = stable\", function () { pm.expect(pm.response.headers.get(\"x-track\")).to.eql(\"stable\"); });",
+                  "var a = pm.response.json();",
+                  "pm.test(\"devuelve un arreglo\", function () { pm.expect(a).to.be.an(\"array\"); });",
+                  "pm.test(\"stable (v3) NO devuelve categoria\", function () { pm.expect(a[0]).to.not.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - GET by id (articulos/1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/articulos/1",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-track = stable\", function () { pm.expect(pm.response.headers.get(\"x-track\")).to.eql(\"stable\"); });",
+                  "pm.test(\"stable (v3) NO devuelve categoria\", function () { pm.expect(pm.response.json()).to.not.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - POST create (guarda el id)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{stable_url}}/articulos",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Prueba Postman\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "var a = pm.response.json();",
+                  "pm.collectionVariables.set(\"articulo_stable_id\", a.id);",
+                  "pm.test(\"se creo con id\", function () { pm.expect(a.id).to.be.a(\"number\"); });",
+                  "pm.test(\"stable (v3) NO devuelve categoria\", function () { pm.expect(a).to.not.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - GET by id (el creado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/articulos/{{articulo_stable_id}}",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "{{articulo_stable_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"es el articulo creado\", function () { pm.expect(pm.response.json().nombre).to.eql(\"Prueba Postman\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - PATCH update (unidad_medida)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{stable_url}}/articulos/{{articulo_stable_id}}",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "{{articulo_stable_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unidad_medida\": \"toneladas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"se actualizo\", function () { pm.expect(pm.response.json().unidad_medida).to.eql(\"toneladas\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6 - QUERY search (por tipo)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{stable_url}}/articulos/search",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"materia_prima\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Verbo QUERY enviado como POST + X-HTTP-Method-Override: QUERY."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"devuelve un arreglo con resultados\", function () { var a = pm.response.json(); pm.expect(a).to.be.an(\"array\"); pm.expect(a.length).to.be.above(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7 - DELETE (borra el creado)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/articulos/{{articulo_stable_id}}",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "{{articulo_stable_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "La v3 ignora la columna categoria: no la acepta ni la devuelve."
+    },
+    {
+      "name": "02 - Canary (v4.0.0): CRUD con categoria",
+      "item": [
+        {
+          "name": "1 - GET all articulos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-track = canary\", function () { pm.expect(pm.response.headers.get(\"x-track\")).to.eql(\"canary\"); });",
+                  "var a = pm.response.json();",
+                  "pm.test(\"devuelve un arreglo\", function () { pm.expect(a).to.be.an(\"array\"); });",
+                  "pm.test(\"canary (v4) SI devuelve categoria\", function () { pm.expect(a[0]).to.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - GET by id (articulos/1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos/1",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-track = canary\", function () { pm.expect(pm.response.headers.get(\"x-track\")).to.eql(\"canary\"); });",
+                  "pm.test(\"canary (v4) SI devuelve categoria\", function () { pm.expect(pm.response.json()).to.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - POST create con categoria (guarda el id)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/articulos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Prueba Postman\",\n  \"tipo\": \"materia_prima\",\n  \"unidad_medida\": \"kg\",\n  \"categoria\": \"harinas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", function () { pm.response.to.have.status(201); });",
+                  "var a = pm.response.json();",
+                  "pm.collectionVariables.set(\"articulo_canary_id\", a.id);",
+                  "pm.test(\"guarda y devuelve categoria\", function () { pm.expect(a.categoria).to.eql(\"harinas\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - GET by id (el creado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos/{{articulo_canary_id}}",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "{{articulo_canary_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"categoria = harinas\", function () { pm.expect(pm.response.json().categoria).to.eql(\"harinas\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - PATCH update categoria",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/articulos/{{articulo_canary_id}}",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "{{articulo_canary_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoria\": \"azucares\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"categoria = azucares\", function () { pm.expect(pm.response.json().categoria).to.eql(\"azucares\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6 - QUERY search por categoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-HTTP-Method-Override",
+                "value": "QUERY"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/articulos/search",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoria\": \"azucares\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Verbo QUERY enviado como POST + X-HTTP-Method-Override: QUERY."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"incluye el articulo creado\", function () { var id = Number(pm.collectionVariables.get(\"articulo_canary_id\")); pm.expect(pm.response.json().map(function (a) { return a.id; })).to.include(id); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7 - DELETE (borra el creado)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos/{{articulo_canary_id}}",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "{{articulo_canary_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "La v4 acepta, guarda, filtra y devuelve categoria (Expand/Contract: la columna es opcional)."
+    },
+    {
+      "name": "03 - Canary: inyeccion de fallos (requiere team_api_key)",
+      "item": [
+        {
+          "name": "1 - GET estado del caos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/admin/caos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "admin",
+                "caos"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"trae latencia_ms y tasa_error\", function () { var j = pm.response.json(); pm.expect(j).to.have.property(\"latencia_ms\"); pm.expect(j).to.have.property(\"tasa_error\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - POST activar caos (100 % de errores 500)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{team_api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/admin/caos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "admin",
+                "caos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tasa_error\": 1,\n  \"latencia_ms\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Activa la falla. Acuerdate de apagarla con el request 5."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"caos activo\", function () { pm.expect(pm.response.json().tasa_error).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - GET articulos/1 con el caos activo (500 esperado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos/1",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 500\", function () { pm.response.to.have.status(500); });",
+                  "pm.test(\"mensaje de fallo inyectado\", function () { pm.expect(pm.response.json().mensaje).to.include(\"inyectado\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - GET health con el caos activo (sigue 200: /health esta exento)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/health",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - DELETE apagar el caos",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/admin/caos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "admin",
+                "caos"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"caos apagado\", function () { pm.expect(pm.response.json().tasa_error).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6 - GET articulos/1 tras apagarlo (vuelve 200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos/1",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7 - GET /admin/caos SIN clave (401 esperado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/admin/caos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "admin",
+                "caos"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8 - GET /admin/caos en STABLE (404: no existe en la v3)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{team_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{stable_url}}/admin/caos",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "admin",
+                "caos"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "El caos solo existe en el track canary y exige x-api-key. Si un request falla a medias, ejecuta el 5 para apagarlo."
+    },
+    {
+      "name": "04 - Router: acceso y reparto de trafico",
+      "item": [
+        {
+          "name": "1 - GET articulos/1 publico (peso 0: va a stable)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{router_url}}/articulos/1",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-routed-to = stable\", function () { pm.expect(pm.response.headers.get(\"x-routed-to\")).to.eql(\"stable\"); });",
+                  "pm.test(\"trae X-Request-Id\", function () { pm.expect(pm.response.headers.get(\"x-request-id\")).to.be.a(\"string\"); });",
+                  "pm.test(\"stable (v3) NO devuelve categoria\", function () { pm.expect(pm.response.json()).to.not.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - GET articulos/1 con x-canary: true (etapa 0: va al canary)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-canary",
+                "value": "true"
+              }
+            ],
+            "url": {
+              "raw": "{{router_url}}/articulos/1",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"x-routed-to = canary\", function () { pm.expect(pm.response.headers.get(\"x-routed-to\")).to.eql(\"canary\"); });",
+                  "pm.test(\"x-route-reason = header\", function () { pm.expect(pm.response.headers.get(\"x-route-reason\")).to.eql(\"header\"); });",
+                  "pm.test(\"canary (v4) SI devuelve categoria\", function () { pm.expect(pm.response.json()).to.have.property(\"categoria\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - GET /router/weight",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{router_url}}/router/weight",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "router",
+                "weight"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"trae canary_weight\", function () { pm.expect(pm.response.json()).to.have.property(\"canary_weight\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - POST /router/weight 30 %",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{admin_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{router_url}}/router/weight",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "router",
+                "weight"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canary_weight\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Cambia el reparto en caliente. Devuelvelo a 0 con el request 6."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"peso = 30\", function () { pm.expect(pm.response.json().canary_weight).to.eql(30); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - GET articulos/1 con 30 % (puede ir a cualquiera)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{router_url}}/articulos/1",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "articulos",
+                "1"
+              ]
+            },
+            "description": "Repitelo varias veces (Collection Runner con iteraciones): ~30 % de las respuestas vendran del canary."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"responde stable o canary\", function () { pm.expect([\"stable\", \"canary\"]).to.include(pm.response.headers.get(\"x-routed-to\")); });",
+                  "pm.test(\"informa la version que respondio\", function () { pm.expect(pm.response.headers.get(\"x-app-version\")).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6 - POST /router/weight 0 % (rollback)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{admin_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{router_url}}/router/weight",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "router",
+                "weight"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canary_weight\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"peso = 0\", function () { pm.expect(pm.response.json().canary_weight).to.eql(0); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7 - GET /router/weight SIN clave (401 esperado)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{router_url}}/router/weight",
+              "host": [
+                "{{router_url}}"
+              ],
+              "path": [
+                "router",
+                "weight"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Muestra el acceso al canary con 0 % por cabecera y el cambio de peso en caliente. Deja siempre el peso en 0."
+    },
+    {
+      "name": "05 - Errores 4xx esperados (errores del cliente)",
+      "item": [
+        {
+          "name": "1 - stable: GET articulos/999999 (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/articulos/999999",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "999999"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2 - canary: GET articulos/999999 (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{canary_url}}/articulos/999999",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos",
+                "999999"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3 - stable: POST con tipo invalido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{stable_url}}/articulos",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"x\",\n  \"tipo\": \"invalido\",\n  \"unidad_medida\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4 - canary: POST con tipo invalido (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{canary_url}}/articulos",
+              "host": [
+                "{{canary_url}}"
+              ],
+              "path": [
+                "articulos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"x\",\n  \"tipo\": \"invalido\",\n  \"unidad_medida\": \"kg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5 - stable: DELETE de un id inexistente (404)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{stable_url}}/articulos/999999",
+              "host": [
+                "{{stable_url}}"
+              ],
+              "path": [
+                "articulos",
+                "999999"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Los 4xx son errores del cliente: NO abortan la promocion (el gate decide con los 5xx) y alimentan el panel \"Errores 4xx\"."
+    }
+  ],
+  "variable": [
+    {
+      "key": "articulo_stable_id",
+      "value": ""
+    },
+    {
+      "key": "articulo_canary_id",
+      "value": ""
+    }
+  ]
+}
