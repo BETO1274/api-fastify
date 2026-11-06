@@ -57,6 +57,7 @@ Colores: **canary en naranja, stable en azul**. Cada panel también trae su desc
 | Peso del canary en el tiempo | Evolución del peso durante la demo | Una escalera: sana `0 → 10 → 50 → 100`; aborto `0 → 10 → 0` |
 | Tráfico por track (req/s) | Peticiones por segundo de cada versión | Las dos líneas se reparten el total según el peso |
 | Tasa de errores 5xx | % de peticiones con error 5xx | 0 % sano. El gate aborta si el canary pasa del 2 % o supera a stable por más de 1 punto |
+| Errores 4xx | % de peticiones con error del cliente (400, 404, 401) | No abortan la promoción; si el canary los tiene y stable no, la v4 rechaza lo que la v3 aceptaba |
 | Latencia p50 | Mediana del tiempo de respuesta | Experiencia típica; canary y stable deben parecerse |
 | Latencia p95 | Tiempo bajo el cual responde el 95 % | Respuestas lentas; límite del gate: max(1,5 × stable, stable + 100 ms) |
 | Latencia p99 | Tiempo del 1 % más lento | Picos que el p95 oculta; límite: max(2 × stable, stable + 250 ms) |

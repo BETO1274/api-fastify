@@ -323,6 +323,8 @@ flowchart LR
     A -.scrape.-> S
     A -.scrape.-> K
     A -->|remote_write| G["Grafana Cloud<br/>tablero + alertas"]
+    R -.logs de error.-> L["Loki<br/>(Grafana Cloud)"]
+    L --- G
     GH["GitHub Actions<br/>canary-promote"] -->|"POST /router/weight"| R
     GH -->|"snapshot / evaluar"| R
 ```
