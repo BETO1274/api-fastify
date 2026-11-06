@@ -1,6 +1,6 @@
 {
   "name": "router",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Router de canary: reparte el trafico entre la API stable y la canary por porcentaje, cabecera o cookie sticky",
   "main": "src/server.js",
   "type": "module",
