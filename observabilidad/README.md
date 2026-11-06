@@ -17,22 +17,27 @@ api canary ──/metrics─────┘
 2. Abre tu stack → **Connections** → **Hosted Prometheus metrics** → **Send metrics**.
 3. Copia tres datos: la **URL de remote write** (termina en `/api/prom/push`), el **usuario** (un número) y crea un **token** con el permiso `metrics:write`.
 
-## 2. Desplegar Alloy en Render
+## 2. Desplegar Alloy en Render (por imagen Docker)
 
-1. Render → **New** → **Background Worker** → *Build and deploy from a Git repository* → este repositorio.
-2. **Root directory:** `observabilidad`. **Runtime:** Docker.
+Alloy se publica como imagen en ghcr.io, igual que la API y el router: el tag `alloy-v1.0.0` dispara `.github/workflows/release-alloy.yml`, que valida `config.alloy` y publica `ghcr.io/beto1274/canary-alloy:alloy-v1.0.0`.
+
+1. Pon el paquete `canary-alloy` en **público** (GitHub → Packages → `canary-alloy` → *Package settings* → *Change visibility*).
+2. Render → **New** → **Web Service** → **Existing image**. Image URL: `ghcr.io/beto1274/canary-alloy:alloy-v1.0.0`. Name: `canary-alloy`.
 3. Variables de entorno:
 
 | Variable | Valor |
 |---|---|
-| `ROUTER_HOST` | host del router con puerto, p. ej. `canary-router.onrender.com:443` |
+| `PORT` | `12345` (el puerto en el que escucha Alloy) |
+| `ROUTER_HOST` | host del router con puerto, p. ej. `canary-router-router-v1-0-0.onrender.com:443` |
 | `STABLE_HOST` | `api-fastify-stable.onrender.com:443` |
 | `CANARY_HOST` | `api-fastify-canary.onrender.com:443` |
 | `GRAFANA_REMOTE_WRITE_URL` | la URL del paso 1 |
 | `GRAFANA_USER` | el usuario del paso 1 |
-| `GRAFANA_TOKEN` | el token del paso 1 |
+| `GRAFANA_TOKEN` | el token del paso 1 (solo se escribe en Render) |
 
 Los hosts van **sin** `https://` y **con** `:443`.
+
+> **Plan gratis de Render:** el servicio se duerme tras ~15 minutos sin peticiones entrantes y Alloy solo hace peticiones salientes. Para la demostración basta con despertarlo justo antes (`curl https://TU-ALLOY.onrender.com/-/ready`) y repetirlo a mitad de la sesión si dura más de 15 minutos.
 
 ## 3. Importar el tablero
 
