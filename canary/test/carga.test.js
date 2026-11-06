@@ -13,7 +13,8 @@ beforeAll(async () => {
     const partes = []
     req.on('data', (parte) => partes.push(parte))
     req.on('end', () => {
-      const cuerpo = partes.length ? JSON.parse(Buffer.concat(partes).toString()) : {}
+      const raw = Buffer.concat(partes).toString()
+      const cuerpo = raw ? JSON.parse(raw) : {}
       const cabeceras = { 'content-type': 'application/json', 'x-routed-to': 'stable' }
       const reply = (codigo, datos) => {
         res.writeHead(codigo, cabeceras)
@@ -32,6 +33,8 @@ beforeAll(async () => {
       const id = Number(req.url.split('/')[2])
       if (req.method === 'GET' && articulos.has(id)) return reply(200, articulos.get(id))
       if (req.method === 'DELETE') {
+        // Igual que Fastify: DELETE con content-type json y sin cuerpo es un 400
+        if (req.headers['content-type'] && !raw) return reply(400, { mensaje: 'Body cannot be empty' })
         const existia = articulos.delete(id)
         return reply(existia ? 204 : 404)
       }
