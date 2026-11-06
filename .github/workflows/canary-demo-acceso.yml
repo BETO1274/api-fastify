@@ -1,0 +1,41 @@
+name: Demo 0 - Acceso y reparto
+
+# Un solo boton, sin parametros. Muestra en pantalla los puntos (a) y (b) de la rubrica:
+#   (a) acceso al canary con 0 % publico, con y sin la cabecera x-canary
+#   (b) distribucion real del trafico: 100 peticiones con 30 % al canary
+# Cada paso imprime sus resultados y el Summary del job trae las tablas.
+# Dura menos de 2 minutos y siempre deja el peso del router en 0 %.
+
+on: workflow_dispatch
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+env:
+  ROUTER_URL: ${{ vars.ROUTER_URL }}
+  STABLE_URL: ${{ vars.STABLE_URL }}
+  CANARY_URL: ${{ vars.CANARY_URL }}
+  ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
+
+jobs:
+  demo:
+    name: Acceso y reparto
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 1 · Despertar router, stable y canary
+        run: bash canary/demo-acceso.sh despertar
+
+      - name: 2 · (a) Acceso con 0 % público, con y sin x-canary
+        run: bash canary/demo-acceso.sh acceso
+
+      - name: 3 · (b) Reparto real al 30 % con 100 peticiones
+        run: bash canary/demo-acceso.sh reparto 30 100
+
+      # Corre siempre, incluso si un paso anterior fallo.
+      - name: 4 · Devolver el peso a 0
+        if: always()
+        run: bash canary/demo-acceso.sh volver
