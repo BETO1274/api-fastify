@@ -1,3 +1,65 @@
+# Colección de Postman — Canary (stable v3 y canary v4)
+
+Pruebas de las **dos versiones de la API** y del **router** de la entrega de Canary Deployments. 40 requests en 6 carpetas, con 82 aserciones.
+
+## Archivos
+
+* `canary.postman_collection.json` — la colección.
+* `canary-nube.postman_environment.json` — environment de **Render** versionado, con `team_api_key` y `admin_key` vacías (plantilla, sin claves reales).
+* `canary-local.postman_environment.json` — environment para correr las dos APIs en **localhost** (`stable` en 3000, `canary` en 3001, router en 8080).
+* `canary-nube.local.postman_environment.json` — **gitignorado**, con las claves reales. Se crea copiando el versionado y completando `team_api_key` y `admin_key`.
+
+## Variables de environment
+
+| Variable | Qué es | Nube | Local |
+|---|---|---|---|
+| `stable_url` | API v3 (track stable) | `https://api-fastify-stable.onrender.com` | `http://localhost:3000` |
+| `canary_url` | API v4 (track canary) | `https://api-fastify-canary.onrender.com` | `http://localhost:3001` |
+| `router_url` | router de canary | `https://canary-router-router-v1-0-0.onrender.com` | `http://localhost:8080` |
+| `team_api_key` | `TEAM_API_KEY` del canary (protege `/admin/caos`) | secreta | `clave-local` |
+| `admin_key` | `ADMIN_KEY` del router (protege `/router/weight`) | secreta | `clave-local` |
+
+## Carpetas
+
+| Carpeta | Qué prueba |
+|---|---|
+| `00 - Salud, versiones y metricas` | `/health` de los tres servicios, `X-App-Version` y `X-Track`, y `/metrics` con `track` y `version` |
+| `01 - Stable (v3.0.1)` | CRUD completo y `QUERY`; la v3 **no** devuelve `categoria` |
+| `02 - Canary (v4.0.0)` | CRUD completo y `QUERY`; la v4 guarda, filtra y devuelve `categoria` |
+| `03 - Canary: inyeccion de fallos` | activa el caos (500), comprueba el error, lo apaga; 401 sin clave y 404 en stable |
+| `04 - Router` | acceso con `x-canary`, cambio de peso en caliente y rollback a 0 % |
+| `05 - Errores 4xx esperados` | 404 y 400 en las dos versiones |
+
+Cada carpeta crea y borra sus propios datos, y las que cambian el estado (caos y peso) lo dejan apagado y en 0 al terminar.
+
+## Cómo correrla
+
+En Postman: importa la colección y un environment, selecciónalo y usa el **Collection Runner** en orden. Con `newman`:
+
+```bash
+npx newman run postman/canary.postman_collection.json -e postman/canary-nube.local.postman_environment.json
+```
+
+Antes de correrla contra Render, despierta los servicios (el plan gratis los duerme): `curl` a `/health` de stable y canary y a `/router/health`.
+
+## Correrla en local
+
+```bash
+# canary (v4, código actual)
+PORT=3001 APP_TRACK=canary APP_VERSION=4.0.0 TEAM_API_KEY=clave-local DATABASE_URL=... node src/server.js
+# stable (v3): el código del tag v3.0.1, en otra carpeta
+git worktree add ../api-v3 v3.0.1 && cd ../api-v3 && npm ci
+PORT=3000 APP_TRACK=stable APP_VERSION=3.0.1 DATABASE_URL=... node src/server.js
+# router
+cd router && STABLE_URL=http://localhost:3000 CANARY_URL=http://localhost:3001 ADMIN_KEY=clave-local node src/server.js
+```
+
+## Nota sobre `QUERY`
+
+Los requests `QUERY` se mandan como `POST` con `X-HTTP-Method-Override: QUERY`, igual que en la colección del gateway: es el mecanismo que la API entiende y funciona detrás de cualquier proxy.
+
+---
+
 # Colección de Postman — Gateway (v3)
 
 Suite de validación end-to-end contra el sistema v3 completo: **Gateway → Orquestador → Service Bus → Worker → api-fastify**. Flujo asíncrono: cada request de creación devuelve `202` con un `id` de tarea, y el request siguiente (`.2`) consulta el resultado con `GET /orquestar/:id`.
