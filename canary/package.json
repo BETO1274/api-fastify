@@ -1,0 +1,18 @@
+{
+  "name": "canary",
+  "version": "1.0.0",
+  "description": "Scripts de la estrategia canary: umbrales SLO, quality gate y generador de carga",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "vitest": "^4.1.10"
+  }
+}
