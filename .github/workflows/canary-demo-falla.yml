@@ -1,0 +1,16 @@
+name: Demo 1 - Falla y rollback
+
+# Un solo boton, sin parametros. Inyecta una falla en el canary: el quality gate
+# la detecta en la etapa 1 (10 %), aborta y el paso ROLLBACK devuelve el 100 %
+# del trafico a stable. El job termina en rojo a proposito.
+# Dura unos 3 minutos y no toca el servicio stable.
+
+on: workflow_dispatch
+
+jobs:
+  demo:
+    uses: ./.github/workflows/canary-pipeline.yml
+    with:
+      inyectar_falla: true
+      demo: true
+    secrets: inherit

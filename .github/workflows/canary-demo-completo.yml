@@ -1,0 +1,16 @@
+name: Demo 2 - Promocion completa
+
+# Un solo boton, sin parametros. Promueve el canary por las etapas 10, 25, 50, 75
+# y 100 %, con el quality gate en cada una. Al final despliega la v4 en stable y
+# devuelve el peso a 0. Dura unos 8 minutos mas ~5 del despliegue en Render.
+# Deja stable ejecutando la v4: hacer esta demo al final de la sustentacion.
+
+on: workflow_dispatch
+
+jobs:
+  demo:
+    uses: ./.github/workflows/canary-pipeline.yml
+    with:
+      inyectar_falla: false
+      demo: true
+    secrets: inherit
