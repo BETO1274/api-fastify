@@ -1,6 +1,10 @@
 name: Canary - Promover por etapas
 
-# Etapa 0 (0% publico, x-canary) -> 10% -> 50% -> 100%, con bake time y
+# Version generica con parametros (demo, inyectar_falla, imagen_canary), de respaldo.
+# Para la sustentacion se usan los dos de un solo boton: canary-demo-falla.yml y
+# canary-demo-completo.yml (pasos visibles en Actions).
+#
+# Etapa 0 (0% publico, x-canary) -> 10% -> 25% -> 50% -> 75% -> 100%, con bake time y
 # quality gate en cada etapa (umbrales en canary/slo.json). Si el gate aborta,
 # el router queda en 0% hacia canary y 100% hacia stable, y el job falla.
 #
