@@ -2,10 +2,10 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    // orchestrator/ y gateway/ son proyectos Node independientes, cada uno con
+    // orchestrator/, gateway/, router/ y canary/ son proyectos Node independientes, cada uno con
     // su propio package.json, node_modules y suite de pruebas (npm test dentro
     // de cada carpeta) — no deben ser recogidos por el vitest de la raíz.
-    exclude: ['**/node_modules/**', 'orchestrator/**', 'gateway/**'],
+    exclude: ['**/node_modules/**', 'orchestrator/**', 'gateway/**', 'router/**', 'canary/**'],
     setupFiles: ['./test/setup.js'],
     coverage: {
       provider: 'v8',
