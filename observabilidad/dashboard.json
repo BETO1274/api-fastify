@@ -6,6 +6,13 @@
       "type": "datasource",
       "pluginId": "prometheus",
       "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_LOKI",
+      "label": "Loki (Grafana Cloud)",
+      "type": "datasource",
+      "pluginId": "loki",
+      "pluginName": "Loki"
     }
   ],
   "title": "Canary: stable vs canary",
@@ -16,7 +23,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -929,6 +936,125 @@
         ]
       },
       "options": {}
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Errores registrados por servicio y version",
+      "description": "Qué muestra: cuántos errores (5xx y fallos de conexión) registró el router en ventanas de 30 s, separados por servicio (stable o canary) y por versión. Cómo se lee: en sano no hay barras. Si el canary falla aparecen barras naranjas con su versión (v4.0.0); si stable falla, azules (v3.0.1). Sirve para saber a qué versión pertenece el error antes de abrir el detalle de abajo.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${DS_LOKI}"
+          },
+          "expr": "sum by (track, version) (count_over_time({app=\"canary-router\", level=\"error\"}[30s]))",
+          "legendFormat": "{{track}} v{{version}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*canary.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*stable.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "logs",
+      "title": "Logs de errores: el error puntual y quien lo produjo",
+      "description": "Qué muestra: una línea por cada error que vio el router: servicio (stable o canary), versión de la API, código HTTP, método y ruta, el mensaje del error y el identificador de la petición (id=...). Cómo se lee: de la más reciente a la más antigua. 'canary v4.0.0 · HTTP 500 · ... · Fallo inyectado (caos)' dice quién falló y por qué. Con el id puedes buscar esa petición exacta en los detalles de la línea. El filtro 'level=error' deja solo los errores.",
+      "datasource": {
+        "type": "loki",
+        "uid": "${DS_LOKI}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${DS_LOKI}"
+          },
+          "expr": "{app=\"canary-router\", level=\"error\"} | json | line_format \"{{.track}} v{{.version}} · HTTP {{.status}} · {{.method}} {{.path}} · {{.error}} · id={{.request_id}}\"",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
     }
   ],
   "templating": {
