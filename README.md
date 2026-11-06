@@ -301,6 +301,81 @@ CMD ["node", "src/server.js"]
 
 ---
 
+## Canary Deployment (Seguimiento #3)
+
+Estrategia de despliegue canary sobre este mismo microservicio. Hay dos versiones conviviendo en producción: **stable (API v3, `v3.0.1`)** y **canary (API v4, `v4.0.0`)**. Un router reparte el tráfico entre ellas por porcentaje y un *quality gate* decide si se promueve, se pausa o se aborta.
+
+- **Proveedor:** Render (servicios Docker "Existing image"), imágenes en GitHub Container Registry, métricas en Grafana Cloud.
+- **Mecanismo de enrutamiento:** Render no reparte tráfico entre servicios, así que el reparto lo hace un router propio (`router/`) con reparto ponderado, cabecera `x-canary: true` y cookie sticky. Ver `router/README.md`.
+- **Versión y track en cada respuesta:** `X-App-Version` y `X-Track` (los pone la API) y `X-Routed-To` y `X-Route-Reason` (los pone el router). Permiten ver en vivo qué instancia atendió cada petición.
+- **Artefacto inmutable:** la imagen se construye una vez por tag y se despliega en Render **por digest SHA256** (`ghcr.io/beto1274/api-fastify@sha256:...`).
+
+### Arquitectura del despliegue
+
+```mermaid
+flowchart LR
+    C[Cliente] --> R["Router de canary<br/>(Render)<br/>peso 0-100% / x-canary / cookie sticky"]
+    R -->|"1 - peso"| S["api-fastify STABLE<br/>v3.0.1 (Render)"]
+    R -->|"peso"| K["api-fastify CANARY<br/>v4.0.0 (Render)"]
+    S --> DB[("Supabase PostgreSQL<br/>esquema compartido")]
+    K --> DB
+    A["Alloy (Render)"] -.scrape.-> R
+    A -.scrape.-> S
+    A -.scrape.-> K
+    A -->|remote_write| G["Grafana Cloud<br/>tablero + alertas"]
+    GH["GitHub Actions<br/>canary-promote"] -->|"POST /router/weight"| R
+    GH -->|"snapshot / evaluar"| R
+```
+
+### Plan de etapas
+
+El plan está definido como código en [`canary/slo.json`](canary/slo.json) y lo ejecuta [`canary/promover.sh`](canary/promover.sh) desde el workflow *Canary - Promover por etapas*.
+
+| Etapa | Tráfico al canary | Bake time real | Bake time demo | Peticiones mínimas al canary | Cómo se accede |
+|---|---|---|---|---|---|
+| 0 | 0 % (solo interno) | prueba de humo | prueba de humo | n/a | cabecera `x-canary: true` |
+| 1 | 10 % | 10 min | 2 min | 100 | reparto ponderado |
+| 2 | 50 % | 15 min | 3 min | 300 | reparto ponderado |
+| 3 | 100 % (promovido) | 10 min | 2 min | 300 | reparto ponderado; luego stable pasa a ejecutar la imagen v4 y el peso vuelve a 0 |
+
+### Umbrales de decisión (SLO)
+
+| Decisión | Condición |
+|---|---|
+| **Promover** | El canary alcanzó las peticiones mínimas de la etapa y cumple todos los umbrales |
+| **Pausar** | Aún no hay muestra suficiente: se extiende la observación (hasta 3 veces), nunca se promueve a ciegas |
+| **Abortar** | Con al menos 20 peticiones: errores 5xx del canary > 2 %, o superan a stable por más de 1 punto, o p95 > max(1.5 × stable, stable + 100 ms), o p99 > max(2 × stable, stable + 250 ms) |
+
+Al abortar, el router queda en **0 % hacia canary y 100 % hacia stable** de inmediato (con peso 0 la cookie sticky se ignora) y se limpian los datos de prueba. El gate compara contra la línea base stable medida en el mismo router y bajo la misma carga concurrente (`canary/carga.mjs`), no contra un valor fijo.
+
+### Compatibilidad de datos (Expand/Contract)
+
+La v4 agrega `articulo.categoria` con la migración `supabase/migrations/20261105190000_agregar_categoria_articulo.sql`:
+
+1. **Expand (esta entrega):** `alter table articulo add column categoria text null`. Es una columna **opcional y sin NOT NULL**: la v3 no la conoce, no la devuelve (su esquema de respuesta la omite) y sus `INSERT` siguen funcionando.
+2. **Migrate:** la v4 acepta, guarda, filtra y devuelve `categoria`. Con stable y canary activos a la vez, ambas leen y escriben la misma tabla sin conflicto.
+3. **Contract (futuro, solo cuando v3 ya no exista):** recién entonces se podría volver obligatoria la columna o quitar lo viejo. No se hace ninguna migración destructiva que impida el rollback.
+
+### Cambio funcional observable en v4
+
+`POST /articulos` y `PATCH /articulos/:id` aceptan `categoria`; las respuestas la incluyen; `QUERY /articulos/search` filtra por `{ "categoria": "..." }`. La v3 ignora el campo.
+
+### Inyección de fallos (solo canary)
+
+Con `APP_TRACK=canary` y `TEAM_API_KEY` definida, la v4 expone `POST /admin/caos` (`{ "latencia_ms": 400, "tasa_error": 0.5 }`), `GET` y `DELETE`, y acepta el header `x-chaos: latency=800,error=0.3`. Todo exige `x-api-key`. En stable esos endpoints no existen (404). El workflow de promoción tiene la opción `inyectar_falla` para simular una regresión y verificar el aborto.
+
+### Cómo operarlo
+
+| Acción | Cómo |
+|---|---|
+| Publicar stable / canary | `git tag v3.x.y` / `git tag v4.x.y` y `git push --tags`: construye la imagen y la despliega por digest en el servicio correspondiente |
+| Publicar el router | tag `router-vX.Y.Z` |
+| Promoción por etapas | Actions → **Canary - Promover por etapas** → *Run workflow* (`demo` y `inyectar_falla` opcionales) |
+| Rollback inmediato | Actions → **Canary - Rollback inmediato** |
+| Cambiar el peso a mano | `curl -X POST $ROUTER_URL/router/weight -H "x-admin-key: ..." -d '{"canary_weight":25}'` |
+| Ver quién atiende | `curl -i $ROUTER_URL/articulos/1` → cabeceras `X-Routed-To`, `X-Track`, `X-App-Version` |
+| Observabilidad | `observabilidad/README.md` (Alloy, tablero y alertas en Grafana Cloud) |
+
 ## Documentación adicional
 
 - **Guía de sustentación** (arquitectura, migraciones, pruebas, guion de defensa): ver el artefacto publicado por separado.
