@@ -7,7 +7,10 @@
 #
 # Variables:
 #   ROUTER_URL, ADMIN_KEY            (obligatorias)
-#   CANARY_URL, CANARY_TEAM_API_KEY  (solo para INYECTAR_FALLA=true)
+#   STABLE_URL, CANARY_URL           (recomendadas) se despiertan antes de empezar: en el plan
+#                                    gratis de Render los servicios hibernan tras ~15 min sin trafico
+#   CANARY_TEAM_API_KEY              (solo para INYECTAR_FALLA=true)
+#   WARMUP_MAX_SEGUNDOS              espera maxima por servicio al despertarlo (120 por defecto)
 #   DEMO=true                        usa los tiempos cortos de slo.json
 #   BAKE_SEGUNDOS                    fuerza la duracion de cada bake (pruebas locales)
 #   SLO_ARCHIVO                      otro archivo de umbrales (pruebas locales)
@@ -19,6 +22,7 @@ ROUTER_URL="${ROUTER_URL%/}"
 DEMO="${DEMO:-true}"
 INYECTAR_FALLA="${INYECTAR_FALLA:-false}"
 MAX_EXTENSIONES="${MAX_EXTENSIONES:-3}"
+WARMUP_MAX_SEGUNDOS="${WARMUP_MAX_SEGUNDOS:-120}"
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 SLO="${SLO_ARCHIVO:-$AQUI/slo.json}"
 ESTADO="${RUNNER_TEMP:-/tmp}/estado-router.json"
@@ -39,6 +43,43 @@ caos() {
     curl -fsS -X POST "${CANARY_URL%/}/admin/caos" -H "x-api-key: ${CANARY_TEAM_API_KEY:-}" \
       -H 'content-type: application/json' -d "$1" > /dev/null
   fi
+}
+
+# Despierta un servicio con peticiones directas a /health hasta que responda 200.
+calentar() {
+  local nombre="$1" url="${2%/}" codigo fin=$((SECONDS + WARMUP_MAX_SEGUNDOS))
+  while [ "$SECONDS" -lt "$fin" ]; do
+    codigo="$(curl -s -o /dev/null -m 30 -w '%{http_code}' "$url/health" 2>/dev/null || true)"
+    if [ "$codigo" = "200" ]; then
+      echo "$nombre listo (HTTP 200)"
+      return 0
+    fi
+    echo "$nombre aun no responde (HTTP ${codigo:-000}), reintentando..."
+    sleep 5
+  done
+  return 1
+}
+
+# Imprime "track|codigo" de una peticion al router (track = cabecera X-Routed-To).
+sondear() {
+  local cabeceras codigo track
+  cabeceras="$(mktemp)"
+  codigo="$(curl -s -m 30 -o /dev/null -D "$cabeceras" -w '%{http_code}' "$@" 2>/dev/null || true)"
+  track="$(tr -d '' < "$cabeceras" | grep -i '^x-routed-to:' | awk '{print $2}')"
+  rm -f "$cabeceras"
+  echo "${track:-?}|${codigo:-000}"
+}
+
+# Repite la sonda hasta obtener HTTP 200 (el router puede tardar en alcanzar un servicio recien despierto).
+sondear_ok() {
+  local resultado intento
+  for intento in 1 2 3 4 5 6; do
+    resultado="$(sondear "$@")"
+    [ "${resultado#*|}" = "200" ] && { echo "$resultado"; return 0; }
+    sleep 5
+  done
+  echo "$resultado"
+  return 1
 }
 
 limpiar() {
@@ -65,16 +106,28 @@ terminar_con_rollback() {
   echo "|---|---|---|---|---|---|---|---|"
 } >> "$RESUMEN"
 
+# ---- Antes de tocar el router: despertar y comprobar los servicios ----
+echo "== Preparacion: despertando los servicios (plan gratis) =="
+for par in "stable:${STABLE_URL:-}" "canary:${CANARY_URL:-}"; do
+  nombre="${par%%:*}"; url="${par#*:}"
+  [ -z "$url" ] && { echo "Sin URL de $nombre: se omite el calentamiento directo"; continue; }
+  if ! calentar "$nombre" "$url"; then
+    echo "::error::El servicio $nombre no respondio HTTP 200 en ${WARMUP_MAX_SEGUNDOS}s: no se inicia la promocion"
+    echo "### 🛑 No se inicio la promocion: $nombre no responde" >> "$RESUMEN"
+    exit 1
+  fi
+done
+
 # ---- Etapa 0: 0% publico, solo acceso interno por cabecera ----
 echo "== Etapa 0: 0% publico, prueba de humo con x-canary =="
 peso 0 || terminar_con_rollback "no se pudo fijar el peso en 0"
 
-interno="$(curl -fsS -D - -o /dev/null -H 'x-canary: true' "$ROUTER_URL/health" | tr -d '\r' | grep -i '^x-routed-to:' | awk '{print $2}')"
-publico="$(curl -fsS -D - -o /dev/null "$ROUTER_URL/health" | tr -d '\r' | grep -i '^x-routed-to:' | awk '{print $2}')"
-echo "con x-canary -> $interno | sin cabecera -> $publico"
-[ "$interno" = "canary" ] || terminar_con_rollback "x-canary: true no llego al canary (llego a '$interno')"
-[ "$publico" = "stable" ] || terminar_con_rollback "el trafico publico con peso 0 no fue a stable (fue a '$publico')"
-echo "| 0 | 0% | - | humo OK | - | - | - | - |" >> "$RESUMEN"
+interno="$(sondear_ok -H 'x-canary: true' "$ROUTER_URL/health")" || terminar_con_rollback "x-canary: true no obtuvo HTTP 200 del canary (resultado '$interno')"
+publico="$(sondear_ok "$ROUTER_URL/health")" || terminar_con_rollback "el trafico publico no obtuvo HTTP 200 (resultado '$publico')"
+echo "con x-canary -> ${interno%|*} (HTTP ${interno#*|}) | sin cabecera -> ${publico%|*} (HTTP ${publico#*|})"
+[ "${interno%|*}" = "canary" ] || terminar_con_rollback "x-canary: true no llego al canary (llego a '${interno%|*}')"
+[ "${publico%|*}" = "stable" ] || terminar_con_rollback "el trafico publico con peso 0 no fue a stable (fue a '${publico%|*}')"
+echo "| 0 | 0% | - | humo OK (200) | - | - | - | - |" >> "$RESUMEN"
 
 if [ "$INYECTAR_FALLA" = "true" ]; then
   echo "== Inyectando falla en el canary (50% de errores 500 + 400ms) =="
