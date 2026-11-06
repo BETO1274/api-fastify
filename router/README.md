@@ -39,6 +39,19 @@ Van bajo `/router/*` para no chocar con las rutas de la API.
 | `CANARY_WEIGHT` | Porcentaje inicial hacia canary (0-100). Por defecto 0 |
 | `ADMIN_KEY` | Clave para `/router/weight`. Sin ella el endpoint queda deshabilitado |
 | `PORT` | Puerto (8080 por defecto) |
+| `LOKI_URL` | URL de envío de logs, p. ej. `https://logs-prod-021.grafana.net/loki/api/v1/push` (opcional) |
+| `LOKI_USER` | Usuario (Instance ID) de Loki (opcional) |
+| `LOKI_TOKEN` | Token con permiso `logs:write` (opcional) |
+
+## Logs de errores (Loki)
+
+Si están definidas `LOKI_URL`, `LOKI_USER` y `LOKI_TOKEN`, el router envía a Grafana Loki **una línea por cada error**: respuestas 5xx de las APIs y fallos de conexión (502/504). Sin esas variables el registro queda desactivado y no afecta al tráfico.
+
+- **Etiquetas de Loki:** `app="canary-router"`, `level`, `track` (`stable` o `canary`) y `version` (la que informa la API en `X-App-Version`).
+- **Cada línea (JSON):** `status`, `method`, `path` (sin query), `request_id`, `reason` y `error` (los primeros 300 caracteres del cuerpo del error).
+- **`X-Request-Id`:** el router lo genera (o respeta el que traiga la petición), lo envía a la API y lo devuelve en la respuesta, para buscar una petición concreta en los logs.
+
+Consulta de ejemplo en Grafana: `{app="canary-router", level="error"} | json`
 
 El porcentaje cambiado con `POST /router/weight` vive en memoria: si el servicio se reinicia, vuelve a `CANARY_WEIGHT`.
 
