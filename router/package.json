@@ -1,0 +1,21 @@
+{
+  "name": "router",
+  "version": "1.0.0",
+  "description": "Router de canary: reparte el trafico entre la API stable y la canary por porcentaje, cabecera o cookie sticky",
+  "main": "src/server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file=.env src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "vitest": "^4.1.10"
+  }
+}
