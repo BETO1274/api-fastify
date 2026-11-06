@@ -1,0 +1,88 @@
+name: Canary - Promover por etapas
+
+# Etapa 0 (0% publico, x-canary) -> 10% -> 50% -> 100%, con bake time y
+# quality gate en cada etapa (umbrales en canary/slo.json). Si el gate aborta,
+# el router queda en 0% hacia canary y 100% hacia stable, y el job falla.
+#
+# Variables del repo (Settings > Variables): ROUTER_URL, CANARY_URL
+# Secretos: ROUTER_ADMIN_KEY, CANARY_TEAM_API_KEY, RENDER_API_KEY,
+#           RENDER_SERVICE_ID_STABLE
+
+on:
+  workflow_dispatch:
+    inputs:
+      demo:
+        description: 'Usar los tiempos cortos de bake (sustentacion). Falso = tiempos reales'
+        type: boolean
+        default: true
+      inyectar_falla:
+        description: 'Activar /admin/caos en el canary para simular una regresion'
+        type: boolean
+        default: false
+      imagen_canary:
+        description: 'Imagen del canary que se promueve a stable al llegar al 100%'
+        type: string
+        default: 'ghcr.io/beto1274/api-fastify:v4.0.0'
+
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+env:
+  ROUTER_URL: ${{ vars.ROUTER_URL }}
+  CANARY_URL: ${{ vars.CANARY_URL }}
+  ADMIN_KEY: ${{ secrets.ROUTER_ADMIN_KEY }}
+  CANARY_TEAM_API_KEY: ${{ secrets.CANARY_TEAM_API_KEY }}
+
+jobs:
+  promover:
+    name: Promocion progresiva del canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Pruebas del gate y de la carga
+        working-directory: canary
+        run: |
+          npm ci
+          npm run lint
+          npm test
+
+      - name: Promover por etapas con quality gate
+        env:
+          DEMO: ${{ inputs.demo }}
+          INYECTAR_FALLA: ${{ inputs.inyectar_falla }}
+        run: bash canary/promover.sh
+
+      - name: Promover el canary a stable (despliegue por digest) y devolver el peso a 0
+        if: success() && inputs.inyectar_falla == false
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID_STABLE }}
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "${{ inputs.imagen_canary }}" --format '{{.Manifest.Digest}}')
+          IMAGEN="${{ inputs.imagen_canary }}"
+          REF="${IMAGEN%%:*}@${DIGEST}"
+          echo "Desplegando en stable: $REF"
+          curl --fail-with-body -sS -X POST "https://api.render.com/v1/services/$SERVICE_ID/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+            -d "{\"imageUrl\": \"$REF\"}"
+
+          for i in $(seq 1 60); do
+            ESTADO=$(curl -fsS "https://api.render.com/v1/services/$SERVICE_ID/deploys?limit=1" \
+              -H "Authorization: Bearer $RENDER_API_KEY" | jq -r '.[0].deploy.status')
+            echo "deploy de stable: $ESTADO"
+            [ "$ESTADO" = "live" ] && break
+            case "$ESTADO" in build_failed|update_failed|canceled|deactivated) echo "::error::El despliegue de stable fallo: $ESTADO"; exit 1 ;; esac
+            sleep 10
+          done
+          [ "$ESTADO" = "live" ] || { echo "::error::El despliegue de stable no termino a tiempo"; exit 1; }
+
+          curl -fsS -X POST "$ROUTER_URL/router/weight" -H "x-admin-key: $ADMIN_KEY" \
+            -H 'content-type: application/json' -d '{"canary_weight":0}'
+          echo "### Stable ahora ejecuta el canary promovido. Router en 0% hacia canary." >> "$GITHUB_STEP_SUMMARY"
