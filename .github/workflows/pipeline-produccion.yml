@@ -7,8 +7,12 @@ on:
     branches: [produccion]
 
 env:
-  # Conexión directa (no pooler): evita inconsistencia de caché de esquema justo tras migrar
-  DATABASE_URL: ${{ secrets.MIGRATION_DB_URL_PROD }}
+  # Postgres efímero del propio runner (ver "services" abajo). El proyecto de
+  # Supabase de Producción ya no existe: la base real de producción vive en
+  # Azure (terraform/) y se siembra con datos sintéticos al desplegar, así que
+  # este pipeline solo necesita una base para correr las pruebas. Las
+  # migraciones en supabase/migrations/ son SQL estándar y corren igual.
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
 permissions:
   contents: read
@@ -18,6 +22,20 @@ jobs:
   build-and-test:
     name: Build, pruebas y quality gate (Producción)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -34,8 +52,12 @@ jobs:
       - name: Análisis estático (lint)
         run: npm run lint
 
-      - name: Aplicar migraciones pendientes a Supabase Producción
-        run: npx supabase db push --db-url "${{ secrets.MIGRATION_DB_URL_PROD }}" --yes
+      - name: Aplicar migraciones al Postgres efímero
+        run: |
+          for archivo in supabase/migrations/*.sql; do
+            echo "Aplicando $archivo..."
+            PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$archivo"
+          done
 
       - name: Ejecutar pruebas con cobertura
         run: npm run test:coverage
@@ -48,8 +70,10 @@ jobs:
 
       - name: Smoke test — el contenedor arranca y responde
         run: |
-          docker run -d --name smoke-test -p 3000:3000 \
-            -e DATABASE_URL="${{ secrets.MIGRATION_DB_URL_PROD }}" \
+          # --network host: así el contenedor alcanza el Postgres efímero
+          # del job (expuesto en localhost:5432 del runner).
+          docker run -d --name smoke-test --network host \
+            -e DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
             -e PORT=3000 \
             api-fastify-produccion
 
