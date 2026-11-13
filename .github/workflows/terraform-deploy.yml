@@ -52,39 +52,39 @@ jobs:
       - name: Terraform validate
         run: terraform validate
 
-      # Fase 1: todo menos los Container Apps. Los contenedores necesitan
-      # que Postgres ya tenga el esquema aplicado, así que arrancarlos antes
-      # de migrar los dejaría crasheando contra una base vacía.
-      - name: "Terraform apply (fase 1 — infraestructura base, sin los contenedores)"
+      # Terraform ya no crea contenedores (solo el clúster AKS, la base de
+      # datos, la cola y el monitoreo), así que no hace falta separar el
+      # apply en fases: los pods se instalan después, en el paso de
+      # Kubernetes, cuando Postgres ya tiene el esquema aplicado.
+      - name: Terraform apply (infraestructura)
         run: |
           terraform apply -auto-approve \
-            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
-            -var="ghcr_token=${{ secrets.GHCR_READ_TOKEN }}" \
-            -var="team_api_key=${{ secrets.TEAM_API_KEY }}" \
-            -target=module.azure_platform.azurerm_resource_group.principal \
-            -target=module.azure_platform.azurerm_postgresql_flexible_server.principal \
-            -target=module.azure_platform.azurerm_postgresql_flexible_server_firewall_rule.permitir_todo \
-            -target=module.azure_platform.azurerm_servicebus_namespace.principal \
-            -target=module.azure_platform.azurerm_servicebus_queue.tareas_orquestador \
-            -target=module.azure_platform.azurerm_log_analytics_workspace.principal \
-            -target=module.azure_platform.azurerm_monitor_workspace.principal \
-            -target=module.azure_platform.azurerm_container_app_environment.principal
+            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}"
 
       - name: Guardar outputs de Terraform
         id: tf
         run: |
           echo "postgres_host=$(terraform output -raw postgres_host)" >> "$GITHUB_OUTPUT"
+          echo "aks_cluster_name=$(terraform output -raw aks_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "resource_group_name=$(terraform output -raw resource_group_name)" >> "$GITHUB_OUTPUT"
 
       - name: Instalar dependencias (raíz, para el script de migración)
         working-directory: .
         run: npm ci
 
-      - name: Aplicar el esquema y migrar los datos reales
+      # Sin ORIGEN_URL el script solo aplica el esquema: el Supabase de
+      # Producción ya no existe, así que los datos son sintéticos (siguiente paso).
+      - name: Aplicar el esquema (migraciones)
         working-directory: .
         env:
-          ORIGEN_URL: ${{ secrets.MIGRATION_DB_URL_PROD }}
           DESTINO_URL: postgresql://apiadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ steps.tf.outputs.postgres_host }}:5432/postgres?sslmode=require
         run: node infra/scripts/migrar-a-azure.js
+
+      - name: Sembrar los datos sintéticos
+        working-directory: .
+        env:
+          DATABASE_URL: postgresql://apiadmin:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ steps.tf.outputs.postgres_host }}:5432/postgres?sslmode=require
+        run: node infra/scripts/seed-produccion.js
 
       - name: Inicializar la tabla del orquestador
         working-directory: orchestrator
@@ -94,17 +94,100 @@ jobs:
           npm ci
           node scripts/aplicar-esquema.js
 
-      # Fase 2: ya con la base lista, crea los 4 Container Apps (api-fastify,
-      # orchestrator, worker, gateway) — un solo "apply" instala la API
-      # completa, sin kubectl ni manifiestos de por medio.
-      - name: "Terraform apply (fase 2 — los 4 Container Apps)"
-        run: |
-          terraform apply -auto-approve \
-            -var="postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" \
-            -var="ghcr_token=${{ secrets.GHCR_READ_TOKEN }}" \
-            -var="team_api_key=${{ secrets.TEAM_API_KEY }}"
+      # ---- Kubernetes: ya con la base lista, se instalan los pods en el AKS ----
 
-      - name: Mostrar las URLs públicas
+      - name: Conectar kubectl al clúster AKS
+        working-directory: .
         run: |
-          echo "api-fastify: $(terraform output -raw api_fastify_url)"
-          echo "gateway:     $(terraform output -raw gateway_url)"
+          az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" --output none
+          az account set --subscription "$ARM_SUBSCRIPTION_ID"
+          az aks get-credentials \
+            --resource-group "${{ steps.tf.outputs.resource_group_name }}" \
+            --name "${{ steps.tf.outputs.aks_cluster_name }}" \
+            --overwrite-existing
+
+      # Los Secrets se crean desde los GitHub Secrets y las salidas sensibles
+      # de Terraform: nunca pasan por un archivo del repo. k8s/**/secret.example.yaml
+      # son solo plantillas y NO se aplican (sobrescribirían los valores reales).
+      - name: Crear namespaces y Secrets de Kubernetes
+        env:
+          TEAM_API_KEY: ${{ secrets.TEAM_API_KEY }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          DATABASE_URL="$(terraform output -raw database_url)"
+          SERVICEBUS_CONNECTION_STRING="$(terraform output -raw servicebus_connection_string)"
+          echo "::add-mask::$DATABASE_URL"
+          echo "::add-mask::$SERVICEBUS_CONNECTION_STRING"
+          cd ..
+          kubectl apply -f k8s/api-fastify/namespace.yaml -f k8s/orchestrator/namespace.yaml
+          for ns in api-fastify orchestrator; do
+            kubectl create secret docker-registry ghcr-pull-secret \
+              --namespace "$ns" --docker-server=ghcr.io \
+              --docker-username=BETO1274 --docker-password="$GHCR_READ_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+          done
+          kubectl create secret generic api-fastify-secrets --namespace api-fastify \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            --from-literal=TEAM_API_KEY="$TEAM_API_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic orchestrator-secrets --namespace orchestrator \
+            --from-literal=DATABASE_URL="$DATABASE_URL" \
+            --from-literal=SERVICEBUS_CONNECTION_STRING="$SERVICEBUS_CONNECTION_STRING" \
+            --from-literal=TEAM_API_KEY="$TEAM_API_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Aplicar los manifiestos de Kubernetes
+        working-directory: .
+        run: |
+          kubectl apply \
+            -f k8s/api-fastify/configmap.yaml \
+            -f k8s/api-fastify/deployment.yaml \
+            -f k8s/api-fastify/service.yaml
+          kubectl apply \
+            -f k8s/orchestrator/configmap.yaml \
+            -f k8s/orchestrator/deployment.yaml \
+            -f k8s/orchestrator/worker-deployment.yaml \
+            -f k8s/orchestrator/service.yaml \
+            -f k8s/gateway/deployment.yaml \
+            -f k8s/gateway/service.yaml
+          kubectl rollout status deployment/api-fastify --namespace api-fastify --timeout=300s
+          kubectl rollout status deployment/orchestrator --namespace orchestrator --timeout=300s
+          kubectl rollout status deployment/worker --namespace orchestrator --timeout=300s
+          kubectl rollout status deployment/gateway --namespace orchestrator --timeout=300s
+
+      - name: Instalar Chaos Mesh (sin dashboard, solo en nuestros namespaces)
+        working-directory: .
+        run: bash chaos/instalar-chaos-mesh.sh
+
+      # Estos datos son los que necesitan los otros equipos para conectarse.
+      - name: Publicar las direcciones del sistema
+        working-directory: .
+        run: |
+          esperar_ip() {
+            for _ in $(seq 1 30); do
+              ip="$(kubectl get svc "$1" --namespace "$2" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
+              if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+              sleep 10
+            done
+            echo "sin-ip-todavia"
+          }
+          GATEWAY_IP="$(esperar_ip gateway orchestrator)"
+          API_IP="$(esperar_ip api-fastify api-fastify)"
+
+          SALIDA=""
+          for id in $(az aks show \
+            --resource-group "${{ steps.tf.outputs.resource_group_name }}" \
+            --name "${{ steps.tf.outputs.aks_cluster_name }}" \
+            --query "networkProfile.loadBalancerProfile.effectiveOutboundIPs[].id" -o tsv); do
+            SALIDA="$SALIDA $(az network public-ip show --ids "$id" --query ipAddress -o tsv)"
+          done
+
+          {
+            echo "## Sistema desplegado en AKS"
+            echo ""
+            echo "| Componente | Dirección |"
+            echo "|---|---|"
+            echo "| Gateway (punto de entrada) | http://$GATEWAY_IP |"
+            echo "| api-fastify | http://$API_IP |"
+            echo "| IP de salida del clúster (para firewalls de otros equipos) |${SALIDA:- sin-dato} |"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
