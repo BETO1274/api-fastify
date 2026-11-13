@@ -1,8 +1,13 @@
-// Migra esquema + datos de Supabase Producción hacia el servidor Azure.
-// Uso: ORIGEN_URL y DESTINO_URL como variables de entorno (nunca hardcodeadas
-// aquí) — ver credentials.local.md para los valores reales.
+// Aplica el esquema en el servidor Azure y, si hay un origen, copia los datos.
+// Uso: DESTINO_URL (siempre) y ORIGEN_URL (opcional) como variables de entorno
+// (nunca hardcodeadas aquí) — ver credentials.local.md para los valores reales.
 //
+// Modo completo (esquema + copia de datos desde el origen):
 //   ORIGEN_URL="postgresql://...supabase..." DESTINO_URL="postgresql://...azure...?sslmode=require" node infra/scripts/migrar-a-azure.js
+//
+// Modo solo esquema (sin ORIGEN_URL): aplica las migraciones y termina. Los
+// datos se siembran después con seed-produccion.js (datos sintéticos).
+//   DESTINO_URL="postgresql://...azure...?sslmode=require" node infra/scripts/migrar-a-azure.js
 
 import { Client } from 'pg'
 import fs from 'fs'
@@ -13,9 +18,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const ORIGEN = process.env.ORIGEN_URL
 const DESTINO = process.env.DESTINO_URL
+const SOLO_ESQUEMA = !ORIGEN
 
-if (!ORIGEN || !DESTINO) {
-  console.error('Faltan ORIGEN_URL y/o DESTINO_URL como variables de entorno. Ver el comentario de uso al inicio de este archivo.')
+if (!DESTINO) {
+  console.error('Falta DESTINO_URL como variable de entorno. Ver el comentario de uso al inicio de este archivo.')
   process.exit(1)
 }
 
@@ -55,13 +61,19 @@ async function copiarTabla(origen, destino, tabla, columnas) {
 }
 
 async function main() {
-  const origen = new Client({ connectionString: ORIGEN })
   const destino = new Client({ connectionString: DESTINO, ssl: { rejectUnauthorized: false } })
-
-  await origen.connect()
   await destino.connect()
 
   await aplicarEsquema(destino)
+
+  if (SOLO_ESQUEMA) {
+    await destino.end()
+    console.log('Sin ORIGEN_URL: solo se aplicó el esquema, no se copiaron datos.')
+    return
+  }
+
+  const origen = new Client({ connectionString: ORIGEN })
+  await origen.connect()
 
   console.log('=== Copiando datos (respetando el orden de dependencias) ===')
   await copiarTabla(origen, destino, 'articulo', ['id', 'nombre', 'tipo', 'unidad_medida', 'creado_en', 'actualizado_en'])
