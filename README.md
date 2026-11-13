@@ -384,6 +384,77 @@ Con `APP_TRACK=canary` y `TEAM_API_KEY` definida, la v4 expone `POST /admin/caos
 | Observabilidad | `observabilidad/README.md` (Alloy, tablero, alertas y logs de errores en Grafana Cloud) |
 | Logs de errores | El router envía a Loki una línea por error con `track`, `version`, ruta, mensaje y `X-Request-Id` (ver `router/README.md`) |
 
+## Ingeniería del Caos (Seguimiento #4)
+
+> **Estado:** infraestructura, código y experimento preparados; **todavía sin ejecutar** (sin mediciones ni resultados). Los valores del estado estable y los umbrales se completan al medir el sistema desplegado.
+
+### El flujo
+
+El flujo medido es `GET /api/v2/articulos/:id` de api-fastify, el **coordinador**: en una sola petición conecta las tres nubes y propaga el mismo `X-Trace-Id` y la misma `X-Api-Key`. Las dos llamadas salientes van en paralelo y usan los listados v1 de las otras APIs (nunca sus `/api/v2`, así no hay ciclos).
+
+```mermaid
+flowchart LR
+    K["k6<br/>perfil fijo (load/)"] -->|"GET /api/v2/articulos/:id<br/>X-Trace-Id"| A
+
+    subgraph AZ["Azure (AKS) — radio de impacto del experimento"]
+      A["api-fastify x2<br/>coordinador"]
+      DB[("PostgreSQL<br/>Azure")]
+      A --> DB
+    end
+
+    A -->|"GET /deportistas<br/>X-Trace-Id"| D["deportBack<br/>GKE"]
+    A -->|"GET /skus<br/>X-Trace-Id"| I["Inventario-U<br/>OCI"]
+
+    X1(["INYECCIÓN 1: Chaos Mesh<br/>NetworkChaos (latencia saliente)"]) -.->|"egreso de api-fastify → deportBack"| A
+    X2(["INYECCIÓN 2: interruptor propio<br/>/admin/caos-saliente (con vencimiento)"]) -.-> A
+
+    M1["MEDICIÓN: k6 (p95/p99 extremo a extremo,<br/>flujo_exito, evidencia JSON)"] -.-> K
+    M2["MEDICIÓN: /metrics de api-fastify<br/>dependencia_*, circuit_breaker_*, caos_*"] -.-> A
+```
+
+La frontera del radio de impacto es el tráfico de **salida** de los pods de api-fastify hacia deportBack. Inventario-U, la base de datos, el orquestador, el gateway y el resto del clúster no se tocan. Detalles en [`chaos/`](chaos/README.md) y [`load/`](load/README.md).
+
+### Matriz integrante – fallo – métrica – patrón
+
+| Integrante | Rol | Fallo | Métrica objetivo | Patrones de resiliencia |
+|---|---|---|---|---|
+| api-fastify (Azure/AKS) | Coordinador del flujo | **Latencia saliente** hacia deportBack (otra nube) | Latencia p95 extremo a extremo del v2 *(propuesta, a acordar)*; umbral `PENDIENTE` | Timeout por dependencia ajustado a lo medido, circuit breaker, degradación elegante |
+| deportBack (GKE) | Hoja de la cadena | Indisponibilidad de una dependencia *(por confirmar con el grupo)* | `PENDIENTE` | `PENDIENTE` |
+| Inventario-U (OCI) | Hoja de la cadena | Agotamiento de un recurso *(por confirmar con el grupo)* | `PENDIENTE` | `PENDIENTE` |
+
+### Patrones de resiliencia de api-fastify
+
+Viven en `src/common/http-externo.js` y se controlan por variables de entorno (ver `k8s/api-fastify/configmap.yaml`), de modo que la **Ronda 0 y la Ronda 1 usan la misma imagen** y solo cambia la configuración:
+
+| | Ronda 0 (controles actuales) | Ronda 1 (con mejoras) |
+|---|---|---|
+| Timeout por dependencia | `HTTP_EXTERNO_TIMEOUT_MS=5000` | ajustado a la latencia p95 medida de cada API |
+| Circuit breaker | `CB_ACTIVO=false` | `CB_ACTIVO=true` (`CB_UMBRAL_FALLOS`, `CB_ENFRIAMIENTO_MS`) |
+| Degradación elegante | sí (ya existía): si una API falla, el v2 responde con `{ error }` en su lugar | sí |
+
+El circuit breaker solo cuenta fallas de la dependencia (timeout, conexión, 5xx); un 4xx no lo abre. Su estado vive en cada réplica.
+
+### Piezas conservadas y retiradas
+
+| Pieza | Estado |
+|---|---|
+| api-fastify v1 y v2 (CRUD y flujo de las 3 APIs) | **Conservada.** El v2 es el flujo del experimento. |
+| Gateway, Orquestador, Worker y cola de Service Bus | **Conservados**, ahora en AKS; atienden las escrituras. **No** están en el camino medido. |
+| Azure Container Apps | **Retirado**, reemplazado por AKS (Terraform en `terraform/`). |
+| Base de datos | PostgreSQL Flexible Server en Azure, con datos sintéticos (`infra/scripts/seed-produccion.js`). |
+| Canary (router, Alloy, Render, Postman) | Conservado de la entrega anterior; no participa en esta. |
+
+### Operación
+
+```bash
+# Despliegue completo (AKS + base + pods + Chaos Mesh): ver terraform/README.md
+gh workflow run terraform-deploy.yml --repo BETO1274/api-fastify --ref produccion
+
+# Carga con el perfil fijo (load/README.md) y fallo (chaos/README.md)
+bash chaos/latencia-saliente.sh activar deportback <latencia_ms> <duracion_s>
+bash chaos/revertir.sh        # reversión inmediata y verificada
+```
+
 ## Documentación adicional
 
 - **Guía de sustentación** (arquitectura, migraciones, pruebas, guion de defensa): ver el artefacto publicado por separado.
