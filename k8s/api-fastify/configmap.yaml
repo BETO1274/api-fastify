@@ -6,5 +6,21 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "3000"
+  # APIs de los otros equipos que consulta el v2. Son las direcciones de la fase
+  # 2: PENDIENTE que cada equipo confirme que siguen vigentes.
   DEPORTBACK_URL: "http://34.133.194.129"
   INVENTARIO_U_URL: "http://158.247.121.202"
+
+  # ---- Resiliencia de las llamadas salientes del v2 (ver src/common/http-externo.js) ----
+  # Ronda 0 = controles actuales: timeout de 5 s y degradación, SIN circuit breaker.
+  # Ronda 1 = CB_ACTIVO "true" y HTTP_EXTERNO_TIMEOUT_MS ajustado a la latencia p95
+  # medida de cada API. Misma imagen en las dos rondas: solo cambia esta configuración.
+  HTTP_EXTERNO_TIMEOUT_MS: "5000"
+  CB_ACTIVO: "false"
+  CB_UMBRAL_FALLOS: "3"
+  CB_ENFRIAMIENTO_MS: "30000"
+
+  # Interruptor propio de caos (latencia saliente): habilita /admin/caos-saliente.
+  # Exige la x-api-key, toda activación lleva duración obligatoria (vence solo) y
+  # no hace nada hasta que se activa. Ver chaos/latencia-saliente.sh.
+  CAOS_SALIENTE_HABILITADO: "true"
