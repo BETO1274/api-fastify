@@ -1,0 +1,110 @@
+# Experimento de caos como código: latencia saliente hacia deportBack.
+# Integrante: api-fastify (coordinador del flujo). Fallo de tipo (a) de la rúbrica:
+# latencia inyectada en la llamada saliente hacia la API de un compañero en otra nube.
+#
+# El flujo es GET /api/v2/articulos/:id de api-fastify: en una sola petición
+# conecta las tres nubes (api-fastify en Azure/AKS, deportBack, Inventario-U),
+# propagando el mismo X-Trace-Id. Las dos llamadas salientes van en paralelo.
+#
+# Los campos marcados PENDIENTE no tienen valor todavía A PROPÓSITO: salen de la
+# medición del estado estable en el sistema desplegado y del acuerdo del grupo.
+# No se rellenan con suposiciones. Este experimento no se ejecuta hasta que no
+# queden PENDIENTE en estado_estable, hipotesis.umbral y la ventana.
+
+experimento: latencia-saliente-deportback
+version: 2
+equipo: api-fastify
+flujo:
+  entrada: GET /api/v2/articulos/:id de api-fastify (coordinador)
+  llamadas_salientes: [deportBack GET /deportistas, Inventario-U GET /skus]  # listados v1, nunca sus /api/v2
+fallo:
+  tipo: latencia saliente hacia la API de un compañero en otra nube
+  dependencia_afectada: deportBack
+  inyeccion:
+    herramienta_declarativa:
+      nombre: Chaos Mesh (NetworkChaos, action delay)
+      manifiesto: chaos/experiments/latencia-saliente.chaosmesh.yaml
+    interruptor_propio:
+      descripcion: >-
+        Latencia saliente desde el propio código de api-fastify (src/common/caos-saliente.js),
+        activable en caliente y con vencimiento obligatorio. Cubre el caso en que la
+        herramienta no pueda apuntar a la dependencia (por ejemplo, si deportBack cambia de IP).
+      activar: bash chaos/latencia-saliente.sh activar deportback <latencia_ms> <duracion_s>
+    parametros:
+      latencia_ms: PENDIENTE  # decidir con el diagnóstico; debe superar HTTP_EXTERNO_TIMEOUT_MS
+      duracion: PENDIENTE     # propuesta: 90s, dentro del escalón de 120 s del perfil de carga
+
+perfil_de_carga:
+  herramienta: k6
+  archivo: load/k6-flujo.js
+  nota: Mismo perfil en Ronda 0 y Ronda 1. Escalones 2, 5, 10 y 2 req/s (ver el archivo).
+
+estado_estable:
+  descripcion: >-
+    Con el perfil de carga y sin ningún fallo inyectado, el v2 trae las dos
+    dependencias (sin error en apis_externas) y responde dentro del tiempo medido.
+  se_mide_en: escalón "base" del perfil (5 req/s), en el sistema desplegado
+  valores_medidos:
+    flujos_completos_tasa: PENDIENTE
+    latencia_p95_ms: PENDIENTE
+    latencia_p99_ms: PENDIENTE
+  instrumento: k6 (resumen de evidencia en resultados/<execution_id>.json) y métricas dependencia_* de api-fastify
+  ventana_de_observacion: PENDIENTE  # duración del escalón base usada para medir
+
+hipotesis:
+  formato: >-
+    Dado el perfil de carga P, cuando se inyecte latencia de <latencia_ms> hacia
+    deportBack durante <duracion>, el v2 mantendrá la métrica objetivo dentro del umbral.
+  metrica_objetivo:
+    # PROPUESTA, a acordar con el grupo antes de ejecutar. Una única métrica:
+    nombre: latencia p95 extremo a extremo de GET /api/v2/articulos/:id
+    umbral: PENDIENTE  # se fija a partir del estado estable medido
+    nota_de_honestidad: >-
+      Se reporta además la tasa de flujos completos como control, no como objetivo:
+      una respuesta degradada más rápida no demuestra por sí sola una mejora.
+  ronda_0_controles_actuales:
+    descripcion: >-
+      El código actual: timeout fijo de 5000 ms por dependencia y degradación (si una
+      API falla, el v2 responde igual con { error } en su lugar). Sin circuit breaker.
+      Configuración: CB_ACTIVO=false, HTTP_EXTERNO_TIMEOUT_MS=5000.
+    expectativa: >-
+      Si la latencia inyectada supera el timeout, cada petición espera ese timeout
+      completo y la p95 queda pegada a él, por encima del umbral: la hipótesis se
+      refutaría. Es una EXPECTATIVA a verificar con datos, no un resultado.
+  ronda_1_con_mejoras:
+    descripcion: misma imagen, mismo perfil, mismo fallo, misma duración
+    configuracion: CB_ACTIVO=true y HTTP_EXTERNO_TIMEOUT_MS ajustado a la latencia p95 medida
+    patrones_a_aplicar:
+      - timeout por dependencia ajustado a la latencia medida (HTTP_EXTERNO_TIMEOUT_MS)
+      - circuit breaker (CB_UMBRAL_FALLOS, CB_ENFRIAMIENTO_MS)
+      - degradación elegante (ya existía; se mantiene)
+
+radio_de_impacto:
+  alcanza: pods app=api-fastify del namespace api-fastify, solo su tráfico de salida hacia deportBack
+  no_alcanza: Inventario-U (la otra dependencia), base de datos, orquestador, gateway, cola y cualquier otro namespace
+  datos: sintéticos del proyecto (seed), ninguno real
+  cuentas_y_recursos: solo infraestructura propia del grupo (AKS propio y deportBack del grupo)
+  ventana: PENDIENTE  # fecha y hora acordadas con los tres integrantes antes de ejecutar
+
+condiciones_de_aborto:
+  # Parámetros de SEGURIDAD propuestos (no son resultados medidos); ajustables
+  # por el grupo. Las evalúa el ejecutor del experimento (ver chaos/README.md).
+  - descripcion: tasa de respuestas HTTP >= 500 de api-fastify por encima de 50% durante 30 s seguidos
+  - descripcion: alguna réplica de api-fastify deja de responder /health
+  - descripcion: se supera la duración máxima prevista del experimento
+  - descripcion: cualquiera de los tres integrantes pide detenerlo
+
+reversion:
+  automatica:
+    - Chaos Mesh retira la inyección al cumplirse `duration` del manifiesto
+    - el interruptor propio vence solo al cumplirse duracion_s (tope 1800 s)
+  manual_inmediata: bash chaos/revertir.sh
+  verificacion_de_recuperacion: >-
+    Tras revertir, el v2 vuelve a traer las dos dependencias y la latencia p95 al rango
+    del estado estable medido. Se registra el tiempo de recuperación; si no se
+    recupera, se registra "no recuperado" (nunca cero).
+  probada_antes_de_la_primera_ejecucion: false  # pasar a true solo tras probar chaos/revertir.sh en el AKS
+
+evidencia_por_ejecucion:
+  campos: [execution_id, round, experiment, trace_id, timestamps UTC, requests totales, errores, error rate, p95/p99, MTTD, MTTR, estado antes/durante/después]
+  regla: lo que no se detecta o no se recupera se registra como "no detectado" o "no recuperado"; no se usa cero ni se inventan resultados

@@ -1,0 +1,48 @@
+# Inyección de latencia en las llamadas SALIENTES de api-fastify hacia deportBack
+# (otra nube). Herramienta declarativa: Chaos Mesh (NetworkChaos).
+#
+# Es una PLANTILLA: las variables se sustituyen al aplicarla, y ninguna tiene un
+# valor "inventado" por defecto en este archivo:
+#
+#   DEPORTBACK_HOST  dirección (IP o dominio) de deportBack, confirmada por su equipo
+#   LATENCIA_MS      latencia a inyectar, decidida con la hipótesis (debe superar el
+#                    timeout configurado para que el patrón de resiliencia actúe)
+#   DURACION         duración de la inyección, p. ej. 90s (cae dentro del escalón de
+#                    carga del perfil de load/k6-flujo.js, que dura 120 s)
+#
+#   DEPORTBACK_HOST=... LATENCIA_MS=... DURACION=90s \
+#     envsubst < chaos/experiments/latencia-saliente.chaosmesh.yaml | kubectl apply -f -
+#
+# Reversión AUTOMÁTICA: `duration` — al cumplirse, Chaos Mesh retira la
+# inyección solo, aunque quien la lanzó ya no esté. Reversión manual e
+# inmediata: bash chaos/revertir.sh
+#
+# Radio de impacto: solo los pods de api-fastify, solo su tráfico de SALIDA hacia
+# deportBack. Inventario-U (la otra dependencia), la base de datos, el orquestador,
+# el gateway y el resto del clúster no se tocan. Chaos Mesh solo actúa en
+# namespaces anotados con chaos-mesh.org/inject=enabled (lo hace
+# chaos/instalar-chaos-mesh.sh).
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: latencia-saliente-deportback
+  namespace: api-fastify
+  labels:
+    experimento: latencia-saliente
+    equipo: api-fastify
+spec:
+  action: delay
+  mode: all
+  selector:
+    namespaces:
+      - api-fastify
+    labelSelectors:
+      app: api-fastify
+  direction: to
+  externalTargets:
+    - "${DEPORTBACK_HOST}"
+  delay:
+    latency: "${LATENCIA_MS}ms"
+    jitter: "0ms"
+    correlation: "100"
+  duration: "${DURACION}"
