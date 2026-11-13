@@ -1,5 +1,5 @@
-# Observabilidad: Log Analytics (logs de los Container Apps, referenciado
-# desde container_apps_environment.tf) y Prometheus administrado (métricas).
+# Observabilidad: Log Analytics (logs y métricas de los pods del AKS,
+# referenciado desde aks.tf) y Prometheus administrado (métricas).
 
 resource "random_string" "sufijo_monitoreo" {
   length  = 8

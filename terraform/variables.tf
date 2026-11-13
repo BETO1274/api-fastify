@@ -31,40 +31,22 @@ variable "postgres_admin_password" {
   sensitive   = true
 }
 
-variable "ghcr_username" {
-  description = "Usuario de GitHub para hacer pull de las imágenes privadas de ghcr.io"
+variable "aks_cluster_name" {
+  description = "Nombre del clúster AKS"
   type        = string
-  default     = "BETO1274"
+  default     = "kubernet-devops"
 }
 
-variable "ghcr_token" {
-  description = "Token con permiso read:packages para hacer pull de ghcr.io — nunca lo pongas en este archivo"
-  type        = string
-  sensitive   = true
+variable "aks_node_count" {
+  description = "Cantidad de nodos del clúster (mínimo 2 para repartir las réplicas)"
+  type        = number
+  default     = 2
 }
 
-variable "team_api_key" {
-  description = "Key compartida que exigen el gateway y el orquestador — nunca la pongas en este archivo"
+variable "aks_node_vm_size" {
+  description = "Tamaño de VM de los nodos del clúster"
   type        = string
-  sensitive   = true
-}
-
-variable "api_fastify_image" {
-  description = "Imagen de api-fastify a desplegar"
-  type        = string
-  default     = "ghcr.io/beto1274/api-fastify-produccion:latest"
-}
-
-variable "orchestrator_image" {
-  description = "Imagen del orchestrator/worker a desplegar (misma imagen, distinto command)"
-  type        = string
-  default     = "ghcr.io/beto1274/orchestrator-produccion:latest"
-}
-
-variable "gateway_image" {
-  description = "Imagen del gateway a desplegar"
-  type        = string
-  default     = "ghcr.io/beto1274/gateway-produccion:latest"
+  default     = "Standard_D2s_v6"
 }
 
 variable "servicebus_namespace_name" {
@@ -80,7 +62,7 @@ variable "servicebus_queue_name" {
 }
 
 variable "servicebus_max_delivery_count" {
-  description = "Intentos de entrega antes de mandar un mensaje a la dead-letter queue — debe coincidir con el valor que recibe el Container App del worker (ver modules/azure-platform/worker.tf)"
+  description = "Intentos de entrega antes de mandar un mensaje a la dead-letter queue — debe coincidir con SERVICEBUS_MAX_DELIVERY_COUNT de k8s/orchestrator/configmap.yaml"
   type        = number
   default     = 3
 }
@@ -90,6 +72,6 @@ variable "tags" {
   type        = map(string)
   default = {
     proyecto = "API Produccion y Materiales"
-    fase     = "v3-terraform"
+    fase     = "v5-caos-aks"
   }
 }

@@ -12,17 +12,13 @@ module "azure_platform" {
   postgres_admin_user     = var.postgres_admin_user
   postgres_admin_password = var.postgres_admin_password
 
+  aks_cluster_name = var.aks_cluster_name
+  aks_node_count   = var.aks_node_count
+  aks_node_vm_size = var.aks_node_vm_size
+
   servicebus_namespace_name     = var.servicebus_namespace_name
   servicebus_queue_name         = var.servicebus_queue_name
   servicebus_max_delivery_count = var.servicebus_max_delivery_count
-
-  ghcr_username = var.ghcr_username
-  ghcr_token    = var.ghcr_token
-  team_api_key  = var.team_api_key
-
-  api_fastify_image  = var.api_fastify_image
-  orchestrator_image = var.orchestrator_image
-  gateway_image      = var.gateway_image
 
   tags = var.tags
 }
