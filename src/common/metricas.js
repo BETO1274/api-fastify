@@ -40,6 +40,39 @@ export const fabricacionesRegistradas = new client.Counter({
   registers: [registro]
 })
 
+// ---- Llamadas salientes a las otras APIs del equipo (deportBack, Inventario-U) ----
+// resultado: ok o el tipo de error (timeout, conexion, http_5xx, http_4xx,
+// respuesta_invalida, circuito_abierto, sin_configurar).
+export const dependenciaLlamadasTotal = new client.Counter({
+  name: 'dependencia_llamadas_total',
+  help: 'Llamadas a cada API externa, por resultado',
+  labelNames: ['servicio', 'resultado'],
+  registers: [registro]
+})
+
+export const dependenciaDuracionSegundos = new client.Histogram({
+  name: 'dependencia_duracion_segundos',
+  help: 'Duracion de las llamadas a cada API externa',
+  labelNames: ['servicio'],
+  buckets: [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  registers: [registro]
+})
+
+// 0 = cerrado, 1 = semiabierto, 2 = abierto
+export const circuitBreakerEstado = new client.Gauge({
+  name: 'circuit_breaker_estado',
+  help: 'Estado del circuit breaker por dependencia (0 cerrado, 1 semiabierto, 2 abierto)',
+  labelNames: ['servicio'],
+  registers: [registro]
+})
+
+export const circuitBreakerRechazosTotal = new client.Counter({
+  name: 'circuit_breaker_rechazos_total',
+  help: 'Llamadas rechazadas sin llegar a la dependencia porque su circuito estaba abierto',
+  labelNames: ['servicio'],
+  registers: [registro]
+})
+
 export function instrumentar(app) {
   app.addHook('onRequest', async (request) => {
     request.inicioMetrica = process.hrtime.bigint()
