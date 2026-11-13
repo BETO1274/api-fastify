@@ -18,6 +18,15 @@ export default [
     }
   },
   {
+    // Los scripts de k6 corren en el runtime de k6, que expone __ENV.
+    files: ['load/**/*.js'],
+    languageOptions: {
+      globals: {
+        __ENV: 'readonly'
+      }
+    }
+  },
+  {
     ignores: ['node_modules/', 'coverage/']
   }
 ]
