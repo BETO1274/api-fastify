@@ -12,10 +12,10 @@ export async function obtenerApisExternasTop(traceId) {
 
   const [deportback, inventarioU] = await Promise.all([
     deportbackUrl
-      ? fetchConTimeout(`${deportbackUrl}/deportistas`, { traceId })
+      ? fetchConTimeout(`${deportbackUrl}/deportistas`, { traceId, servicio: 'deportback' })
       : Promise.resolve({ ok: false, error: 'DEPORTBACK_URL no configurada' }),
     inventarioUUrl
-      ? fetchConTimeout(`${inventarioUUrl}/skus`, { traceId })
+      ? fetchConTimeout(`${inventarioUUrl}/skus`, { traceId, servicio: 'inventario_u' })
       : Promise.resolve({ ok: false, error: 'INVENTARIO_U_URL no configurada' })
   ])
 

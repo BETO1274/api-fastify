@@ -10,6 +10,7 @@ import fabricacionRoutes from './modules/fabricacion/fabricacion.routes.js'
 import v2Routes from './versions/v2.js'
 import { instrumentar } from './common/metricas.js'
 import { registrarCaos } from './common/caos.js'
+import { registrarCaosSaliente } from './common/caos-saliente.js'
 
 export function buildApp() {
   const app = Fastify({
@@ -38,6 +39,7 @@ export function buildApp() {
 
   instrumentar(app)
   registrarCaos(app)
+  registrarCaosSaliente(app)
 
   // No depende de la base de datos: usado como liveness/readiness probe en
   // Kubernetes, para que el Pod no se marque como no-saludable solo porque
